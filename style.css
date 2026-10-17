@@ -216,6 +216,11 @@ button,input {
   color:#a4adaf;
   margin-top:22px
 }
+.login-status {
+  min-height: 16px;
+  margin: 9px 0 0;
+  font-size: 11px;
+}
 .workspace {
   min-height:100vh;
   display:grid;

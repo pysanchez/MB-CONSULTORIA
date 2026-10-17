@@ -66,16 +66,13 @@
               Inicia sesión
             </h2>
             <p class="muted">
-              Por ahora puedes entrar sin credenciales. El acceso real se configurará después.
+              Ingresa la contraseña del despacho. En modo local puedes dejarla vacía.
             </p>
-            <label for="correo">
-              Correo electrónico
-            </label>
-            <input id="correo" type="email" placeholder="nombre@mbconsultoria.mx" autocomplete="username">
-            <label for="contrasena">
+            <label for="login-password">
               Contraseña
             </label>
-            <input id="contrasena" type="password" placeholder="••••••••••" autocomplete="current-password">
+            <input id="login-password" type="password" placeholder="Contraseña del despacho" autocomplete="current-password">
+            <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
             <button class="button button-primary login-button" type="submit">
               Entrar al CRM
               <span aria-hidden="true">

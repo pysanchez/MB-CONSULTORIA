@@ -5,11 +5,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
+import hashlib
+import hmac
 import os
+import time as system_time
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from supabase import Client, create_client
 
@@ -22,6 +26,28 @@ load_dotenv(BASE_DIR / ".env")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", "").strip()
 LOCAL_TIMEZONE = ZoneInfo("America/Mexico_City")
+IS_PRODUCTION = os.getenv("RENDER", "").lower() == "true" or (
+    os.getenv("ENVIRONMENT", "").lower() == "production"
+)
+CRM_ACCESS_PASSWORD = os.getenv("CRM_ACCESS_PASSWORD", "")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "")
+SESSION_COOKIE_NAME = "mb_crm_session"
+SESSION_MAX_AGE = 8 * 60 * 60
+AUTH_ENABLED = IS_PRODUCTION or bool(CRM_ACCESS_PASSWORD)
+
+if IS_PRODUCTION:
+    if not CRM_ACCESS_PASSWORD or len(CRM_ACCESS_PASSWORD) < 32:
+        raise RuntimeError(
+            "En producción configura CRM_ACCESS_PASSWORD con al menos 32 caracteres."
+        )
+    if len(SESSION_SECRET) < 32:
+        raise RuntimeError(
+            "En producción configura SESSION_SECRET con al menos 32 caracteres."
+        )
+elif AUTH_ENABLED and len(SESSION_SECRET) < 32:
+    raise RuntimeError(
+        "Si configuras CRM_ACCESS_PASSWORD en local, SESSION_SECRET debe tener al menos 32 caracteres."
+    )
 
 
 class GestionCreate(BaseModel):
@@ -45,20 +71,85 @@ class GestionCreate(BaseModel):
         decimal_places=2,
     )
 
+
+class LoginRequest(BaseModel):
+    password: str = Field(default="", max_length=256)
+
 app = FastAPI(
     title="MB CONSULTORIA CRM API",
-    description="API local para el CRM de cobranza de MB CONSULTORIA.",
-    version="0.3.0",
+    description="API de gestión para MB CONSULTORIA.",
+    version="0.4.0",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+allowed_origins = []
+if not IS_PRODUCTION:
+    allowed_origins.extend([
         "http://127.0.0.1:5500",
         "http://localhost:5500",
         "http://127.0.0.1:5173",
         "http://localhost:5173",
-    ],
+    ])
+
+def create_session_token() -> str:
+    issued_at = str(int(system_time.time()))
+    signature = hmac.new(
+        SESSION_SECRET.encode("utf-8"),
+        issued_at.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{issued_at}.{signature}"
+
+
+def is_valid_session(token: str | None) -> bool:
+    if not AUTH_ENABLED:
+        return True
+    if not token:
+        return False
+
+    try:
+        issued_at_text, provided_signature = token.split(".", maxsplit=1)
+        issued_at = int(issued_at_text)
+    except (ValueError, TypeError):
+        return False
+
+    age = int(system_time.time()) - issued_at
+    if age < 0 or age > SESSION_MAX_AGE:
+        return False
+
+    expected_signature = hmac.new(
+        SESSION_SECRET.encode("utf-8"),
+        issued_at_text.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(provided_signature, expected_signature)
+
+
+@app.middleware("http")
+async def protect_api(request: Request, call_next):
+    path = request.url.path
+    public_api_paths = {
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/health",
+    }
+
+    if AUTH_ENABLED and path.startswith("/api/") and path not in public_api_paths:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        if not is_valid_session(token):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Inicia sesión para usar el CRM."},
+            )
+
+    return await call_next(request)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -70,7 +161,7 @@ def get_supabase() -> Client:
     if not SUPABASE_URL or not SUPABASE_SECRET_KEY:
         raise HTTPException(
             status_code=503,
-            detail="Configura SUPABASE_URL y SUPABASE_SECRET_KEY en .env.",
+            detail="Configura SUPABASE_URL y SUPABASE_SECRET_KEY en el entorno del servicio o en .env local.",
         )
 
     try:
@@ -80,6 +171,56 @@ def get_supabase() -> Client:
             status_code=503,
             detail="No se pudo inicializar el cliente de Supabase.",
         ) from exc
+
+
+@app.get("/", include_in_schema=False)
+def serve_homepage() -> FileResponse:
+    return FileResponse(BASE_DIR / "index.html")
+
+
+@app.get("/style.css", include_in_schema=False)
+def serve_stylesheet() -> FileResponse:
+    return FileResponse(BASE_DIR / "style.css", media_type="text/css")
+
+
+@app.get("/app.js", include_in_schema=False)
+def serve_frontend_script() -> FileResponse:
+    return FileResponse(BASE_DIR / "app.js", media_type="text/javascript")
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginRequest, response: Response) -> dict[str, bool]:
+    if not AUTH_ENABLED:
+        return {"authenticated": True, "auth_required": False}
+
+    if not hmac.compare_digest(
+        payload.password.encode("utf-8"),
+        CRM_ACCESS_PASSWORD.encode("utf-8"),
+    ):
+        raise HTTPException(status_code=401, detail="La contraseña no es correcta.")
+
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=create_session_token(),
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": True, "auth_required": True}
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response) -> dict[str, bool]:
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": False}
 
 
 def count_rows(query) -> int:

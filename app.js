@@ -1,4 +1,8 @@
-const API_URL = "http://127.0.0.1:8000";
+const isLocalFrontend = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+  && window.location.port !== "8000";
+const API_URL = isLocalFrontend
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : "";
 const PAGE_SIZE = 50;
 const RESULT_LABELS = {
   promesa: "Promesa de pago",
@@ -29,6 +33,8 @@ const portfolioStatus = document.getElementById("portfolio-status");
 const portfolioResults = document.getElementById("portfolio-results");
 const portfolioLoadMoreButton = document.getElementById("portfolio-load-more");
 const loginForm = document.getElementById("login-form");
+const loginPassword = document.getElementById("login-password");
+const loginStatus = document.getElementById("login-status");
 const loginScreen = document.getElementById("login-screen");
 const workspace = document.getElementById("inicio");
 const breadcrumbView = document.getElementById("breadcrumb-view");
@@ -76,6 +82,10 @@ async function getJson(url, options = {}) {
 }
 
 async function loadFinancialOptions() {
+  if (workspace.hidden) {
+    return;
+  }
+
   const financials = await getJson(`${API_URL}/api/financieras`);
   financialSelect.replaceChildren(
     new Option("Selecciona una financiera", ""),
@@ -709,8 +719,25 @@ portfolioButton.addEventListener("click", () => {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  loginStatus.textContent = "Verificando acceso...";
+  loginStatus.classList.remove("upload-error", "upload-success");
+
+  try {
+    await getJson(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: loginPassword.value }),
+    });
+  } catch (error) {
+    loginStatus.textContent = error.message;
+    loginStatus.classList.add("upload-error");
+    return;
+  }
+
   loginScreen.hidden = true;
   workspace.hidden = false;
+  loginPassword.value = "";
+  loginStatus.textContent = "";
   showView("home");
 
   try {
@@ -734,7 +761,13 @@ document.getElementById("back-to-home").addEventListener("click", () => {
   showView("home");
 });
 
-function logout() {
+async function logout() {
+  try {
+    await getJson(`${API_URL}/api/auth/logout`, { method: "POST" });
+  } catch (error) {
+    // Se cierra la vista local aunque la sesión ya haya expirado.
+  }
+
   workspace.hidden = true;
   loginScreen.hidden = false;
   loginForm.reset();
