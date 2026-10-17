@@ -7,6 +7,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 import hashlib
 import hmac
+import logging
 import os
 import time as system_time
 
@@ -19,6 +20,8 @@ from supabase import Client, create_client
 
 from excel_import import ImportFormatError, parse_cartera_file
 
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -532,7 +535,34 @@ def get_general_dashboard() -> dict[str, object]:
     if isinstance(summary, list):
         summary = summary[0] if summary else {}
 
-    return {"alcance": "general", **summary}
+    try:
+        financials_response = (
+            supabase.table("financieras")
+            .select("id_financiera,nombre_financiera")
+            .execute()
+        )
+        portfolio_counts: dict[str, int] = {}
+        for financial in financials_response.data or []:
+            count_response = (
+                supabase.table("carteras")
+                .select("id_cartera", count="exact", head=True)
+                .eq("fk_financiera", financial["id_financiera"])
+                .execute()
+            )
+            portfolio_counts[financial["nombre_financiera"].strip().upper()] = (
+                count_response.count or 0
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudieron consultar las cuentas por financiera.",
+        ) from exc
+
+    return {
+        "alcance": "general",
+        **summary,
+        "cuentas_por_financiera": portfolio_counts,
+    }
 
 
 @app.get("/api/dashboard/{fk_agente}")
@@ -635,15 +665,22 @@ async def import_cartera(
             record["fk_financiera"] = fk_financiera
 
         processed = 0
+        inserted = 0
         batch_size = 500
         for start in range(0, len(records), batch_size):
             batch = records[start:start + batch_size]
             try:
-                supabase.table("carteras").upsert(
+                batch_response = supabase.table("carteras").upsert(
                     batch,
-                    on_conflict="fk_financiera,numero_credito",
+                    on_conflict="fk_financiera,clave_importacion",
+                    ignore_duplicates=True,
                 ).execute()
+                inserted += len(batch_response.data or [])
             except Exception as exc:
+                logger.exception(
+                    "Supabase rejected a cartera batch after %s processed rows",
+                    processed,
+                )
                 raise HTTPException(
                     status_code=502,
                     detail=(
@@ -662,9 +699,16 @@ async def import_cartera(
             detail="Supabase rechazó la carga. Revisa la migración SQL y las políticas de acceso.",
         ) from exc
 
+    omitted = len(records) - inserted
+    message = (
+        "La importacion se completo."
+        if inserted
+        else "No se agregaron cuentas nuevas; todas ya existian."
+    )
     return {
-        "mensaje": "La cartera se importó correctamente.",
-        "registros_procesados": processed,
+        "mensaje": message,
+        "registros_procesados": inserted,
+        "registros_omitidos": omitted,
         "fk_financiera": fk_financiera,
         "nombre_financiera": finance_response.data[0]["nombre_financiera"],
     }

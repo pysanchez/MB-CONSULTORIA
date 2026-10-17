@@ -555,6 +555,11 @@ async function loadDashboard() {
     const progress = total ? Math.round((managed / total) * 100) : 0;
 
     document.getElementById("metric-accounts").textContent = total;
+    const financialCounts = summary.cuentas_por_financiera || {};
+    document.getElementById("metric-border-accounts").textContent =
+      financialCounts["BORDER CREDIT"] || 0;
+    document.getElementById("metric-finore-accounts").textContent =
+      financialCounts.FINORE || 0;
     document.getElementById("metric-calls-yesterday").textContent =
       summary.llamadas_ayer || 0;
     document.getElementById("metric-calls-total").textContent =
@@ -683,7 +688,7 @@ uploadForm.addEventListener("submit", async (event) => {
       body: formData,
     });
 
-    importStatus.textContent = `${result.mensaje} ${result.registros_procesados} cuentas para ${result.nombre_financiera}.`;
+    importStatus.textContent = `${result.mensaje} ${result.registros_procesados} cuentas nuevas; se omitieron ${result.registros_omitidos} ya existentes para ${result.nombre_financiera}.`;
     importStatus.classList.add("upload-success");
     uploadForm.reset();
     fileName.textContent = "Ningún archivo seleccionado";

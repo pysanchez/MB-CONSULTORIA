@@ -507,6 +507,9 @@ button,input {
   color:#9aa4a6;
   margin-top:2px
 }
+.metric-foot span {
+  display:block
+}
 .metric-foot .trend {
   color:#248767;
   font-weight:700
