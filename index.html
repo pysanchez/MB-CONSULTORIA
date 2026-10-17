@@ -1,0 +1,607 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7f8">
+    <title>
+      MB CONSULTORIA | CRM de cobranza
+    </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <section id="login-screen" class="login-screen" aria-labelledby="login-title">
+        <div class="login-brand">
+          <a class="brand" href="#inicio" aria-label="MB Consultoria inicio">
+            <span class="brand-mark">
+              MB
+            </span>
+            <span class="brand-name">
+              MB
+              <b>
+                CONSULTORIA
+              </b>
+            </span>
+          </a>
+          <div class="login-copy">
+            <span class="eyebrow light">
+              GESTIÓN DE CARTERA
+            </span>
+            <h1>
+              Tu cartera,
+              <br>
+              siempre en orden.
+            </h1>
+            <p>
+              Una forma más clara de dar seguimiento, organizar gestiones y recuperar.
+            </p>
+          </div>
+          <div class="brand-foot">
+            <span class="status-dot">
+            </span>
+            Plataforma de gestión de cobranza
+          </div>
+        </div>
+        <div class="login-panel">
+          <form id="login-form" class="login-card">
+            <div class="mobile-brand brand">
+              <span class="brand-mark">
+                MB
+              </span>
+              <span class="brand-name">
+                MB
+                <b>
+                  CONSULTORIA
+                </b>
+              </span>
+            </div>
+            <span class="eyebrow">
+              BIENVENIDO/A
+            </span>
+            <h2 id="login-title">
+              Inicia sesión
+            </h2>
+            <p class="muted">
+              Por ahora puedes entrar sin credenciales. El acceso real se configurará después.
+            </p>
+            <label for="correo">
+              Correo electrónico
+            </label>
+            <input id="correo" type="email" placeholder="nombre@mbconsultoria.mx" autocomplete="username">
+            <label for="contrasena">
+              Contraseña
+            </label>
+            <input id="contrasena" type="password" placeholder="••••••••••" autocomplete="current-password">
+            <button class="button button-primary login-button" type="submit">
+              Entrar al CRM
+              <span aria-hidden="true">
+                →
+              </span>
+            </button>
+            <p class="login-note">
+              Acceso exclusivo para el equipo de MB CONSULTORIA
+            </p>
+          </form>
+        </div>
+      </section>
+      <section id="inicio" class="workspace" aria-label="Vista previa del CRM" hidden>
+        <aside class="sidebar">
+          <a class="brand sidebar-brand" href="#inicio">
+            <span class="brand-mark">
+              MB
+            </span>
+            <span class="brand-name">
+              MB
+              <b>
+                CONSULTORIA
+              </b>
+            </span>
+          </a>
+          <span class="nav-caption">
+            MENÚ PRINCIPAL
+          </span>
+          <nav class="nav-menu" aria-label="Navegación principal">
+            <button id="nav-home" class="nav-link active" type="button" data-view="home">
+              <span class="nav-icon">
+                ⌂
+              </span>
+              Inicio
+            </button>
+            <button id="nav-search" class="nav-link" type="button" data-view="search">
+              <span class="nav-icon">
+                ⌕
+              </span>
+              Buscar cuenta
+            </button>
+            <button id="nav-portfolio" class="nav-link" type="button" data-view="portfolio">
+              <span class="nav-icon">
+                ▤
+              </span>
+              Mi cartera
+            </button>
+            <button id="nav-gestion" class="nav-link" type="button" data-view="management">
+              <span class="nav-icon">
+                ☏
+              </span>
+              Registrar gestión
+            </button>
+            <button id="nav-upload" class="nav-link" type="button" data-view="upload">
+              <span class="nav-icon">↑</span>
+              Cargar cartera
+            </button>
+          </nav>
+          <div class="sidebar-bottom">
+            <div class="help-card">
+              <span class="help-icon">
+                ?
+              </span>
+              <strong>
+                ¿Necesitas ayuda?
+              </strong>
+              <p>
+                Contacta al administrador de tu despacho.
+              </p>
+            </div>
+            <div class="user-mini">
+              <span class="avatar">
+                AP
+              </span>
+              <span>
+                <b>
+                  Agente de prueba
+                </b>
+                <small>
+                  Gestora de cartera
+                </small>
+              </span>
+              <span class="more">
+                ···
+              </span>
+            </div>
+            <button id="logout-button" class="logout-button" type="button">Cerrar sesión</button>
+          </div>
+        </aside>
+        <div class="main-area">
+          <header class="topbar">
+            <div class="breadcrumb">
+              MB CONSULTORIA
+              <span>
+                /
+              </span>
+              <b id="breadcrumb-view">
+                Inicio
+              </b>
+            </div>
+            <div class="top-actions">
+              <span class="today">
+                Hoy
+              </span>
+              <button id="top-register-management" class="button button-primary top-register-management" type="button">
+                Registrar llamada
+              </button>
+              <button id="top-logout-button" class="button button-secondary top-logout-button" type="button">Salir</button>
+              <button class="icon-button" aria-label="Notificaciones">
+                ♧
+                <i>
+                </i>
+              </button>
+              <span class="avatar avatar-small">
+                AP
+              </span>
+            </div>
+          </header>
+          <div id="view-home" class="content crm-view">
+            <section class="welcome-row">
+              <div>
+                <span class="eyebrow">
+                  TU ESPACIO DE TRABAJO
+                </span>
+                <h1>
+                  Hola, agente
+                  <span class="wave">
+                    ✳
+                  </span>
+                </h1>
+                <p class="muted">
+                  Aquí tienes el resumen de actividad de tu cartera.
+                </p>
+              </div>
+              <div class="date-chip">
+                <span>
+                  ◷
+                </span>
+                Resumen de hoy
+                <b>
+                  <span id="today-date">Hoy</span>
+                </b>
+              </div>
+            </section>
+            <section class="metrics-grid" aria-label="Resumen de gestión">
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Cuentas en cartera
+                  </span>
+                  <span class="metric-symbol">
+                    ▤
+                  </span>
+                </div>
+                <strong id="metric-accounts">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  <span class="trend">
+                    0
+                  </span>
+                  Total registrado
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Llamadas realizadas
+                  </span>
+                  <span class="metric-symbol blue">
+                    ◉
+                  </span>
+                </div>
+                <strong id="metric-calls-yesterday">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  Ayer
+                  <b class="dark">
+                    · <span id="metric-calls-total">0</span> acumuladas
+                  </b>
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Cuentas promesadas
+                  </span>
+                  <span class="metric-symbol amber">
+                    ↗
+                  </span>
+                </div>
+                <strong id="metric-promises">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  En seguimiento
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Negativa de pago
+                  </span>
+                  <span class="metric-symbol red">
+                    ↘
+                  </span>
+                </div>
+                <strong id="metric-refusals">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  Requieren atención
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Con recado
+                  </span>
+                  <span class="metric-symbol violet">
+                    ☏
+                  </span>
+                </div>
+                <strong id="metric-messages">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  Pendientes de respuesta
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>
+                    Pagos reportados
+                  </span>
+                  <span class="metric-symbol green">
+                    ✓
+                  </span>
+                </div>
+                <strong id="metric-payments">
+                  0
+                </strong>
+                <div class="metric-foot">
+                  Reportados por clientes
+                </div>
+              </article>
+            </section>
+            <footer class="page-footer">
+              © 2026 MB CONSULTORIA
+              <span>CRM de cobranza</span>
+            </footer>
+          </div>
+          <div id="view-upload" class="content crm-view" hidden>
+            <section id="importar-cartera" class="upload-card" aria-labelledby="upload-title">
+              <div class="upload-heading">
+                <span class="upload-icon" aria-hidden="true">↑</span>
+                <div>
+                  <span class="eyebrow">ACTUALIZA TU CARTERA</span>
+                  <h2 id="upload-title">Cargar base de Excel</h2>
+                  <p class="muted">Selecciona el archivo y la financiera. Las cuentas existentes se actualizarán por número de crédito.</p>
+                </div>
+              </div>
+              <form id="upload-form" class="upload-form">
+                <label class="upload-field" for="financial-select">
+                  Financiera
+                  <select id="financial-select" name="fk_financiera" required>
+                    <option value="">Cargando financieras...</option>
+                  </select>
+                </label>
+                <div class="file-field">
+                  <label class="file-picker" for="archivo-cartera">
+                    <span aria-hidden="true">＋</span>
+                    <span>Seleccionar archivo</span>
+                  </label>
+                  <input id="archivo-cartera" class="file-input" name="file" type="file" accept=".xlsx,.xls,.xlsm,.csv" required>
+                  <span id="file-name" class="file-name">Ningún archivo seleccionado</span>
+                  <span class="file-types">Excel .XLSX, .XLS, .XLSM o CSV</span>
+                </div>
+                <button id="import-button" class="button button-primary" type="submit">Importar cartera</button>
+              </form>
+              <p id="import-status" class="upload-note" role="status" aria-live="polite">
+                El archivo debe conservar las columnas y el orden del layout compartido.
+              </p>
+            </section>
+          </div>
+          <div id="view-search" class="content crm-view" hidden>
+            <section id="buscar" class="search-card">
+              <div class="search-copy">
+                <span class="search-icon">
+                  ⌕
+                </span>
+                <div>
+                  <h2>
+                    Busca una cuenta
+                  </h2>
+                  <p class="muted">
+                    Busca por número de crédito, teléfono o nombre y apellidos. Puedes escribir solo una parte.
+                  </p>
+                </div>
+              </div>
+              <form id="search-form" class="search-form">
+                <label class="sr-only" for="busqueda">
+                  Crédito, teléfono o nombre del cliente
+                </label>
+                <span>
+                  ⌕
+                </span>
+                <input id="busqueda" type="search" placeholder="Crédito, teléfono, nombre o apellido">
+                <button class="button button-primary" type="submit">
+                  Buscar cuenta
+                </button>
+              </form>
+              <div id="search-status" class="search-status" role="status" aria-live="polite"></div>
+              <div class="table-scroll">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>No. de crédito</th>
+                      <th>Teléfono</th>
+                      <th>Financiera</th>
+                      <th>Estatus</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="search-results"></tbody>
+                </table>
+              </div>
+              <button id="load-more" class="button button-secondary load-more" type="button" hidden>Mostrar más resultados</button>
+            </section>
+          </div>
+          <div id="view-portfolio" class="content crm-view" hidden>
+            <section id="cartera" class="portfolio-card">
+              <div class="portfolio-heading">
+                <div>
+                  <span class="eyebrow">
+                    VISTA GENERAL
+                  </span>
+                  <h2>
+                    Mi cartera
+                  </h2>
+                  <p class="muted">
+                    Cartera completa disponible mientras se habilita el inicio de sesión por agente.
+                  </p>
+                </div>
+                <button id="refresh-portfolio" class="text-link" type="button">
+                  Actualizar
+                  <span>
+                    →
+                  </span>
+                </button>
+              </div>
+              <div class="portfolio-summary">
+                <div class="portfolio-count">
+                  <span class="count-icon">
+                    ▤
+                  </span>
+                  <div>
+                    <strong id="portfolio-total">
+                      0
+                    </strong>
+                    <span>
+                      cuentas en cartera
+                    </span>
+                  </div>
+                </div>
+                <div class="portfolio-divider">
+                </div>
+                <div class="portfolio-stat">
+                  <span>
+                    Por gestionar
+                  </span>
+                  <b id="portfolio-pending">
+                    0
+                  </b>
+                </div>
+                <div class="portfolio-stat">
+                  <span>
+                    Con seguimiento
+                  </span>
+                  <b id="portfolio-managed">
+                    0
+                  </b>
+                </div>
+                <div class="portfolio-progress">
+                  <div>
+                    <span>
+                      Avance de gestión
+                    </span>
+                    <b id="portfolio-progress-label">
+                      0%
+                    </b>
+                  </div>
+                  <div class="progress-track">
+                    <span id="portfolio-progress-bar">
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="portfolio-foot">
+                <span>
+                  <i class="status-dot">
+                  </i>
+                  <span id="dashboard-status">Consultando Supabase...</span>
+                </span>
+                <span>
+                  Vista general de MB CONSULTORIA
+                </span>
+              </div>
+              <div id="portfolio-list" class="portfolio-list" hidden>
+                <p id="portfolio-status" class="portfolio-status" role="status" aria-live="polite"></p>
+                <div class="table-scroll">
+                  <table class="results-table">
+                    <thead>
+                      <tr>
+                        <th>Cliente</th>
+                        <th>No. de crédito</th>
+                        <th>Teléfono</th>
+                        <th>Financiera</th>
+                        <th>Estatus</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="portfolio-results"></tbody>
+                  </table>
+                </div>
+                <button id="portfolio-load-more" class="button button-secondary load-more" type="button" hidden>Mostrar más cuentas</button>
+              </div>
+            </section>
+          </div>
+          <section id="view-gestion" class="content management-view" hidden>
+            <div class="management-heading">
+              <div>
+                <span class="eyebrow">GESTIÓN TELEFÓNICA</span>
+                <h1>Registrar llamada</h1>
+                <p class="muted">Selecciona una cuenta y registra el resultado de la llamada.</p>
+              </div>
+              <button id="back-to-home" class="button button-secondary" type="button">Volver al inicio</button>
+            </div>
+
+            <section class="management-card" aria-labelledby="management-search-title">
+              <h2 id="management-search-title">Buscar cuenta</h2>
+              <form id="management-account-search" class="management-search-form">
+                <label class="sr-only" for="management-search-input">Crédito, teléfono o nombre del cliente</label>
+                <input id="management-search-input" type="search" placeholder="Crédito, teléfono, nombre o apellido" required>
+                <button class="button button-primary" type="submit">Buscar</button>
+              </form>
+              <p id="management-search-status" class="management-status" role="status" aria-live="polite"></p>
+              <div id="management-account-results" class="management-account-results"></div>
+            </section>
+
+            <section id="selected-account-panel" class="management-card" aria-labelledby="selected-account-title" hidden>
+              <div class="selected-account-heading">
+                <div>
+                  <span class="eyebrow">CUENTA SELECCIONADA</span>
+                  <h2 id="selected-account-title"></h2>
+                  <p id="selected-account-details" class="muted"></p>
+                </div>
+                <button id="change-account" class="button button-secondary" type="button">Cambiar cuenta</button>
+              </div>
+
+              <div id="account-details" class="account-details" aria-live="polite"></div>
+
+              <form id="management-form" class="management-form">
+                <input id="management-account-id" type="hidden" name="fk_cartera">
+                <label class="management-field" for="contact-status">
+                  ¿Con quién se tuvo contacto?
+                  <select id="contact-status" name="estatus_contacto" required>
+                    <option value="titular">Titular</option>
+                    <option value="tercero">Familiar o tercero</option>
+                    <option value="sin_contacto">Sin contacto</option>
+                  </select>
+                </label>
+                <label class="management-field" for="call-result">
+                  Resultado de la llamada
+                  <select id="call-result" name="codigo_resultado" required>
+                    <option value="">Selecciona el resultado</option>
+                    <option value="promesa">Promesa de pago</option>
+                    <option value="negativa">Negativa de pago</option>
+                    <option value="recado">Se dejó recado</option>
+                    <option value="pago_reportado">Pago reportado</option>
+                    <option value="sin_acuerdo">Contacto sin acuerdo</option>
+                    <option value="no_contesto">No contestó</option>
+                    <option value="numero_incorrecto">Número incorrecto</option>
+                  </select>
+                </label>
+                <div id="promise-fields" class="promise-fields" hidden>
+                  <label class="management-field" for="promise-date">
+                    Fecha de promesa
+                    <input id="promise-date" name="fecha_promesa" type="date">
+                  </label>
+                  <label class="management-field" for="promise-amount">
+                    Monto prometido
+                    <input id="promise-amount" name="monto_promesa" type="number" min="0.01" step="0.01" placeholder="0.00">
+                  </label>
+                </div>
+                <label class="management-field management-comment" for="management-comment">
+                  Comentario de la llamada
+                  <textarea id="management-comment" name="comentario" rows="4" maxlength="5000" placeholder="Anota lo que comentó el cliente y los siguientes pasos..."></textarea>
+                </label>
+                <div class="management-submit-row">
+                  <p id="management-submit-status" class="management-status" role="status" aria-live="polite"></p>
+                  <button id="save-management" class="button button-primary" type="submit">Guardar gestión</button>
+                </div>
+              </form>
+
+              <div class="management-history">
+                <h3>Historial de gestiones</h3>
+                <p id="management-history-status" class="management-status" role="status" aria-live="polite"></p>
+                <article id="latest-management-summary" class="latest-management-summary" hidden>
+                  <span class="eyebrow">ÚLTIMA GESTIÓN REGISTRADA</span>
+                  <strong id="latest-management-result"></strong>
+                  <time id="latest-management-date"></time>
+                  <p id="latest-management-comment"></p>
+                </article>
+                <div id="management-history-list" class="management-history-list"></div>
+              </div>
+            </section>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script src="app.js" defer></script>
+</body>
+</html>
+
+
+
