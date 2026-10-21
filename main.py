@@ -307,6 +307,7 @@ def list_financieras() -> list[dict[str, object]]:
             if financial["nombre_financiera"].strip().upper() in allowed_financials
         ]
     except Exception as exc:
+        logger.exception("No se pudieron consultar las financieras en Supabase.")
         raise HTTPException(
             status_code=502,
             detail="No se pudieron consultar las financieras.",
@@ -1038,6 +1039,12 @@ async def import_cartera(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception(
+            "Supabase rejected cartera import before completing all batches "
+            "(financial_id=%s, parsed_rows=%s)",
+            fk_financiera,
+            len(records),
+        )
         raise HTTPException(
             status_code=502,
             detail="Supabase rechazó la carga. Revisa la migración SQL y las políticas de acceso.",

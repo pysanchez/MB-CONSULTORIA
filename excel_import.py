@@ -132,6 +132,7 @@ DECIMAL_COLUMNS = {
 }
 
 INTEGER_COLUMNS = {"numero_semanas", "pagos_ptes", "pagos_pdtes_actual", "edad", "gestiones"}
+MAX_IMPORT_RECORDS = 100_000
 
 
 class ImportFormatError(ValueError):
@@ -226,32 +227,45 @@ def is_missing(value: object) -> bool:
         return False
 
 
-def normalize_text(value: object) -> str | None:
+def excel_cell_to_text(value: object) -> str | None:
     if is_missing(value):
         return None
 
-    try:
-        if isinstance(value, datetime):
-            return value.isoformat(sep=" ")
-        if isinstance(value, date):
-            return value.isoformat()
-        if isinstance(value, float) and value.is_integer():
-            return str(int(value))
+    if isinstance(value, pd.Timestamp):
+        value = value.to_pydatetime()
+    elif hasattr(value, "item") and callable(value.item):
+        try:
+            value = value.item()
+        except (TypeError, ValueError):
+            pass
 
-        text = str(value).strip()
-    except Exception:
-        return "ERROR DE DATO"
+    if isinstance(value, datetime):
+        return value.isoformat(sep=" ")
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
 
-    if text.upper() in {"#N/A", "N/A", "NA"}:
-        return None
+    text = str(value).strip()
     return text or None
 
 
-def normalize_decimal(value: object, row_number: int, column_name: str) -> str | None:
-    if is_missing(value) or (isinstance(value, str) and not value.strip()):
+def normalize_text(value: object) -> str | None:
+    text = excel_cell_to_text(value)
+    if text is None:
         return None
 
-    if isinstance(value, str) and value.strip().upper() in {
+    if text.upper() in {"#N/A", "N/A", "NA"}:
+        return None
+    return text
+
+
+def normalize_decimal(value: object, row_number: int, column_name: str) -> str | None:
+    value = excel_cell_to_text(value)
+    if value is None:
+        return None
+
+    if value.upper() in {
         "#N/A",
         "N/A",
         "NA",
@@ -261,19 +275,15 @@ def normalize_decimal(value: object, row_number: int, column_name: str) -> str |
     }:
         return None
 
-    text = str(value).strip()
-    if isinstance(value, (int, float, Decimal)):
-        text = str(value)
-    else:
-        text = re.sub(r"[^0-9,.-]", "", text)
-        if "," in text and "." in text:
-            if text.rfind(",") > text.rfind("."):
-                text = text.replace(".", "").replace(",", ".")
-            else:
-                text = text.replace(",", "")
-        elif "," in text:
-            decimals = len(text.rsplit(",", 1)[-1])
-            text = text.replace(",", ".") if decimals in (1, 2) else text.replace(",", "")
+    text = re.sub(r"[^0-9,.-]", "", value)
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        decimals = len(text.rsplit(",", 1)[-1])
+        text = text.replace(",", ".") if decimals in (1, 2) else text.replace(",", "")
 
     if not text or text in {"-", ".", ","}:
         expected_empty_values = {
@@ -308,18 +318,16 @@ def normalize_decimal(value: object, row_number: int, column_name: str) -> str |
 
 
 def normalize_integer(value: object, row_number: int, column_name: str) -> str | None:
-    if is_missing(value) or (isinstance(value, str) and not value.strip()):
+    value = excel_cell_to_text(value)
+    if value is None:
         return None
 
-    if isinstance(value, str):
-        text = value.strip()
-        if text.upper() in {"#N/A", "N/A", "NA", "PDTE", "PENDIENTE", "-", "—"}:
-            return None
-        if "," in text and "." not in text:
-            decimal_places = len(text.rsplit(",", 1)[-1])
-            text = text.replace(",", ".") if decimal_places in (1, 2) else text.replace(",", "")
-    else:
-        text = str(value).strip()
+    text = value.strip()
+    if text.upper() in {"#N/A", "N/A", "NA", "PDTE", "PENDIENTE", "-", "—"}:
+        return None
+    if "," in text and "." not in text:
+        decimal_places = len(text.rsplit(",", 1)[-1])
+        text = text.replace(",", ".") if decimal_places in (1, 2) else text.replace(",", "")
 
     try:
         number = Decimal(text)
@@ -337,29 +345,28 @@ def normalize_integer(value: object, row_number: int, column_name: str) -> str |
 
 
 def normalize_date(value: object, row_number: int, column_name: str) -> str | None:
-    if is_missing(value) or (isinstance(value, str) and not value.strip()):
+    value = excel_cell_to_text(value)
+    if value is None:
         return None
 
-    if isinstance(value, datetime):
-        return value.date().isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-
-    if isinstance(value, (int, float, Decimal)):
-        try:
-            serial = Decimal(str(value))
-            if serial.is_finite() and serial >= 1:
-                excel_date = datetime(1899, 12, 30) + pd.to_timedelta(
-                    float(serial), unit="D"
-                )
-                return excel_date.date().isoformat()
-        except (OverflowError, TypeError, ValueError):
-            pass
-
-    text = str(value).strip()
+    text = value.strip()
     if text.upper() in {"#N/A", "N/A", "NA", "PDTE", "PENDIENTE", "-"}:
         return None
+
+    try:
+        serial = Decimal(text)
+        if serial.is_finite() and serial >= 1:
+            excel_date = datetime(1899, 12, 30) + pd.to_timedelta(
+                float(serial),
+                unit="D",
+            )
+            return excel_date.date().isoformat()
+    except (InvalidOperation, OverflowError, TypeError, ValueError):
+        pass
+
     for date_format in (
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%d %H:%M:%S",
         "%d/%m/%Y",
         "%Y-%m-%d",
         "%d-%m-%Y",
@@ -394,6 +401,7 @@ def parse_cartera_file(contents: bytes, filename: str) -> list[dict[str, object]
         for name, position in column_positions.items():
             value = row[position] if position < len(row) else None
             try:
+                value = excel_cell_to_text(value)
                 if name in INTEGER_COLUMNS:
                     record[name] = normalize_integer(value, row_index + 1, name)
                 elif name in DECIMAL_COLUMNS:
@@ -435,6 +443,8 @@ def parse_cartera_file(contents: bytes, filename: str) -> list[dict[str, object]
         raise ImportFormatError(f"Corrige el archivo antes de importar: {preview}.")
     if not records:
         raise ImportFormatError("No encontre filas de cartera debajo del encabezado.")
-    if len(records) > 10000:
-        raise ImportFormatError("El archivo supera el maximo de 10,000 cuentas por carga.")
+    if len(records) > MAX_IMPORT_RECORDS:
+        raise ImportFormatError(
+            "El archivo supera el maximo de 100,000 cuentas por carga."
+        )
     return records

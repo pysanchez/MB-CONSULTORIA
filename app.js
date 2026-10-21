@@ -75,7 +75,10 @@ let selectedAccount = null;
 let sessionStartedAt = null;
 
 async function getJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    credentials: "include",
+    ...options,
+  });
   const result = await response.json();
 
   if (!response.ok) {

@@ -32,7 +32,7 @@ La secret key debe permanecer solo en el backend. No la incluyas en HTML, CSS ni
 
 ## Importación de la cartera
 
-El importador usa pandas para leer Excel y CSV, busca encabezados en las primeras 30 filas y conecta las columnas con sus campos de Supabase por nombre normalizado, aunque cambie su orden. Los encabezados repetidos de referencias, frecuencia y estatus de correo se asignan por orden de aparición. FINORE identifica cada cuenta con `IdCuenta`; BORDER CREDIT usa su `No. de Crédito`. Se conservan en columnas distintas y cada una tiene una clave de importación adecuada. Acepta `.xlsx`, `.xls`, `.xlsm` y `.csv`, con un máximo de 25 MB y 10,000 cuentas por archivo. La migración 003 registra BORDER CREDIT y FINORE para que aparezcan en el selector.
+El importador usa pandas para leer Excel y CSV, busca encabezados en las primeras 30 filas y conecta las columnas con sus campos de Supabase por nombre normalizado, aunque cambie su orden. Convierte los valores detectados por pandas a texto y después los normaliza al tipo esperado por Supabase (fecha, número entero o decimal, o texto), para evitar enviar valores incompatibles. Los encabezados repetidos de referencias, frecuencia y estatus de correo se asignan por orden de aparición. FINORE identifica cada cuenta con `IdCuenta`; BORDER CREDIT usa su `No. de Crédito`. Se conservan en columnas distintas y cada una tiene una clave de importación adecuada. Acepta `.xlsx`, `.xls`, `.xlsm` y `.csv`, con un máximo de 25 MB y 100,000 cuentas por archivo. La migración 003 registra BORDER CREDIT y FINORE para que aparezcan en el selector.
 
 `Clave Cliente` se guarda en `carteras.id_cuenta` y `No. de Crédito` en `carteras.numero_credito`; ambos permanecen como identificadores distintos. El selector asigna la financiera y, opcionalmente, un agente. El agente que venga en el libro se conserva en `agente_texto`.
 
@@ -53,10 +53,10 @@ El CRM acepta `?credito=NUMERO` en su URL. Tras iniciar sesión, busca ese núme
 En la campaña de VICIdial (por ejemplo, la 005), configura el campo Web Form con una URL como:
 
 ```text
-VARhttps://mb-consultoria.onrender.com/?credito=--A--vendor_lead_code--B--
+VARhttps://mb-consultoria.onrender.com/?credito=--A--first_name--B--
 ```
 
-Este ejemplo supone que `vendor_lead_code` contiene el número de crédito. Si NBX lo guarda en otro campo, usa el marcador de ese campo, como `user_custom_one`. Configura el Web Form para abrir en una pestaña o ventana principal si esa opción está disponible; así el CRM conserva su sesión de inicio. La documentación de VICIdial describe el prefijo `VAR` y los marcadores `--A--campo--B--`.
+Este ejemplo supone que el número de crédito está guardado en el campo **First** de VICIdial, cuyo marcador es `first_name`. Configura el Web Form para abrir en una pestaña o ventana principal si esa opción está disponible; así el CRM conserva su sesión de inicio. La documentación de VICIdial describe el prefijo `VAR` y los marcadores `--A--campo--B--`.
 
 ## Despliegue en Render
 
@@ -71,4 +71,8 @@ El archivo `render.yaml` configura un solo servicio web que sirve la página y l
 En producción la API exige la sesión; la cookie es `HttpOnly`, segura y vence después de ocho horas. El servicio falla al iniciar si faltan la contraseña o el secreto de sesión. El acceso local sigue abierto si no defines `CRM_ACCESS_PASSWORD` en `.env`.
 
 Esta contraseña es compartida y todavía no identifica agentes ni asigna permisos por usuario. Úsala para pruebas del despacho; antes de operar con cuentas individuales, habrá que integrar autenticación por agente y limitar el acceso a la cartera asignada. `SUPABASE_SECRET_KEY` permanece solamente en el backend y debe configurarse en el entorno de Render, nunca en el navegador ni en Git.
+
+## Limpiar datos de prueba
+
+El script `scripts/limpiar_datos_prueba.sql` elimina registros de `pagos`, `gestiones` y `carteras` en una transacción. Conserva los catálogos de `financieras` y `agentes`. No forma parte de las migraciones; ejecútalo manualmente en el SQL Editor de Supabase solo cuando quieras vaciar esos datos.
 
