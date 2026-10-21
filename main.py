@@ -202,6 +202,11 @@ def serve_frontend_script() -> FileResponse:
     return FileResponse(BASE_DIR / "app.js", media_type="text/javascript")
 
 
+@app.get("/mbconsultoria.jpeg", include_in_schema=False)
+def serve_login_logo() -> FileResponse:
+    return FileResponse(BASE_DIR / "mbconsultoria.jpeg", media_type="image/jpeg")
+
+
 @app.post("/api/auth/login")
 def login(payload: LoginRequest, response: Response) -> dict[str, bool]:
     if not AUTH_ENABLED:

@@ -464,6 +464,7 @@ function selectAccount(account) {
     selectedAccountPanel.querySelector(".management-history"),
     document.getElementById("account-details"),
   );
+
   managementForm.reset();
   referenceForm.reset();
   referenceForm.hidden = true;
