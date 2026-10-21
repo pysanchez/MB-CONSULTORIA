@@ -21,12 +21,6 @@ const fileName = document.getElementById("file-name");
 const importButton = document.getElementById("import-button");
 const importStatus = document.getElementById("import-status");
 
-const searchForm = document.getElementById("search-form");
-const searchInput = document.getElementById("busqueda");
-const searchStatus = document.getElementById("search-status");
-const searchResults = document.getElementById("search-results");
-const loadMoreButton = document.getElementById("load-more");
-
 const portfolioButton = document.getElementById("refresh-portfolio");
 const portfolioList = document.getElementById("portfolio-list");
 const portfolioStatus = document.getElementById("portfolio-status");
@@ -40,17 +34,17 @@ const workspace = document.getElementById("inicio");
 const breadcrumbView = document.getElementById("breadcrumb-view");
 const views = {
   home: document.getElementById("view-home"),
-  search: document.getElementById("view-search"),
   portfolio: document.getElementById("view-portfolio"),
   management: document.getElementById("view-gestion"),
   upload: document.getElementById("view-upload"),
+  reports: document.getElementById("view-reports"),
 };
 const viewLabels = {
   home: "Inicio",
-  search: "Buscar cuenta",
   portfolio: "Mi cartera",
   management: "Registrar gestión",
   upload: "Cargar cartera",
+  reports: "Reportes",
 };
 const managementSearchForm = document.getElementById("management-account-search");
 const managementSearchInput = document.getElementById("management-search-input");
@@ -63,12 +57,13 @@ const callResultSelect = document.getElementById("call-result");
 const promiseFields = document.getElementById("promise-fields");
 const managementHistoryList = document.getElementById("management-history-list");
 const latestManagementSummary = document.getElementById("latest-management-summary");
+const personContactedSelect = document.getElementById("person-contacted");
+const referenceForm = document.getElementById("reference-form");
 
-let searchOffset = 0;
-let currentSearch = "";
 let portfolioOffset = 0;
 let portfolioLoaded = false;
 let selectedAccount = null;
+let sessionStartedAt = null;
 
 async function getJson(url, options = {}) {
   const response = await fetch(url, options);
@@ -195,16 +190,22 @@ function renderAccountDetails(account) {
         ["Domicilio", address],
         ["Adeudo inicial", displayMoney(account.sdo_vencido_inicial)],
         ["Adeudo al día", displayMoney(account.saldo_vencido_actual)],
-        ["Adeudo total (saldo al 06/07)", displayMoney(account.sdo_actual)],
+        ["Capital original", displayMoney(account.capital)],
+        ["Capital vigente", displayMoney(account.sdo_capital)],
+        ["Adeudo total", displayMoney(account.total || account.sdo_actual)],
       ],
     },
     {
       title: "Referencias",
       items: [
         ["Referencia 1 · Nombre", account.ref1_nombre],
-        ["Referencia 1 · Número de teléfono", account.referencia_1],
+        ["Referencia 1 · Número de teléfono", account.ref1_tel || account.referencia_1],
         ["Referencia 2 · Nombre", account.ref2_nombre],
-        ["Referencia 2 · Número de teléfono", account.referencia_2],
+        ["Referencia 2 · Número de teléfono", account.ref2_tel || account.referencia_2],
+        ["Referencia 3 · Nombre", account.ref3_nombre],
+        ["Referencia 3 · Número de teléfono", account.ref3_tel],
+        ["Referencia 3 · Parentesco", account.ref3_parentesco],
+        ["Referencia 3 · Domicilio", account.ref3_domicilio],
       ],
     },
   ];
@@ -459,7 +460,17 @@ function selectAccount(account) {
     `Crédito ${account.numero_credito || "—"} · ${account.financiera?.nombre_financiera || "Financiera sin dato"} · Tel. ${account.celular || account.casa || "Sin teléfono"}`;
   renderAccountDetails(account);
   selectedAccountPanel.hidden = false;
+  selectedAccountPanel.insertBefore(
+    selectedAccountPanel.querySelector(".management-history"),
+    document.getElementById("account-details"),
+  );
   managementForm.reset();
+  referenceForm.reset();
+  referenceForm.hidden = true;
+  document.getElementById("toggle-reference-form").hidden = Boolean(
+    account.ref3_nombre || account.ref3_tel,
+  );
+  syncContactOptions(account);
   document.getElementById("management-account-id").value = account.id_cartera;
   promiseFields.hidden = true;
   document.getElementById("promise-date").required = false;
@@ -468,19 +479,80 @@ function selectAccount(account) {
   loadManagementHistory();
 }
 
+function syncContactOptions(account) {
+  const references = [
+    ["Referencia 1", account.ref1_nombre, account.ref1_tel || account.referencia_1],
+    ["Referencia 2", account.ref2_nombre, account.ref2_tel || account.referencia_2],
+    ["Referencia 3", account.ref3_nombre, account.ref3_tel],
+  ];
+  const options = [
+    new Option("Selecciona el contacto", ""),
+    new Option("Titular", "titular"),
+    new Option("No hubo contacto", "sin_contacto"),
+  ];
+
+  for (const [label, name, phone] of references) {
+    if (!name && !phone) {
+      continue;
+    }
+    const value = label.toLowerCase().replace(" ", "");
+    const option = new Option(
+      `${label}${name ? ` · ${name}` : ""}${phone ? ` · ${phone}` : ""}`,
+      value,
+    );
+    options.push(option);
+  }
+
+  personContactedSelect.replaceChildren(...options);
+}
+
+function getContactPhone(contactValue) {
+  if (!selectedAccount) {
+    return null;
+  }
+
+  const phones = {
+    titular: selectedAccount.celular || selectedAccount.casa,
+    referencia1: selectedAccount.ref1_tel || selectedAccount.referencia_1,
+    referencia2: selectedAccount.ref2_tel || selectedAccount.referencia_2,
+    referencia3: selectedAccount.ref3_tel,
+  };
+  return phones[contactValue] || null;
+}
+
+function getContactName(contactValue) {
+  if (!selectedAccount) {
+    return "Sin contacto";
+  }
+
+  const names = {
+    titular: "Titular",
+    sin_contacto: "Sin contacto",
+    referencia1: selectedAccount.ref1_nombre || "Referencia 1",
+    referencia2: selectedAccount.ref2_nombre || "Referencia 2",
+    referencia3: selectedAccount.ref3_nombre || "Referencia 3",
+  };
+  return names[contactValue] || "Otro contacto";
+}
+
 async function loadManagementHistory() {
   if (!selectedAccount) {
     return;
   }
 
   const status = document.getElementById("management-history-status");
+  const resultFilter = document.getElementById("management-result-filter").value;
   managementHistoryList.replaceChildren();
   latestManagementSummary.hidden = true;
   status.textContent = "Cargando historial…";
 
   try {
+    const params = new URLSearchParams({ limite: "20" });
+    if (resultFilter) {
+      params.set("codigo_resultado", resultFilter);
+    }
     const result = await getJson(
-      `${API_URL}/api/carteras/${selectedAccount.id_cartera}/gestiones?limite=20`,
+      `${API_URL}/api/carteras/${selectedAccount.id_cartera}/gestiones?${params}`,
     );
 
     if (!result.items.length) {
@@ -495,7 +567,7 @@ async function loadManagementHistory() {
       RESULT_LABELS[latest.codigo_resultado]
       || latest.codigo_resultado
       || latest.estatus_contacto
-      || "Gestion";
+      || "Gestión";
     document.getElementById("latest-management-date").textContent = latest.fecha_gestion
       ? new Date(latest.fecha_gestion).toLocaleString("es-MX")
       : "Fecha no disponible";
@@ -505,7 +577,17 @@ async function loadManagementHistory() {
 
     for (const management of result.items) {
       const item = document.createElement("article");
-      item.className = "history-item";
+      const outcomeTone = ["no_contesto", "numero_incorrecto"].includes(
+        management.codigo_resultado,
+      )
+        ? "unanswered"
+        : management.codigo_resultado === "recado"
+          && management.estatus_contacto === "tercero"
+          ? "successful"
+          : ["promesa", "pago_reportado"].includes(management.codigo_resultado)
+            ? "successful"
+            : "contacted";
+      item.className = `history-item outcome-${outcomeTone}`;
 
       const heading = document.createElement("div");
       heading.className = "history-item-heading";
@@ -520,6 +602,14 @@ async function loadManagementHistory() {
         : "Fecha no disponible";
       heading.append(outcome, date);
       item.append(heading);
+
+      if (management.persona_contactada || management.telefono_contactado) {
+        const called = document.createElement("small");
+        called.className = "history-contact-person";
+        called.textContent = `Contacto: ${management.persona_contactada || "Sin nombre"}`
+          + (management.telefono_contactado ? ` · ${management.telefono_contactado}` : "");
+        item.append(called);
+      }
 
       const comment = document.createElement("p");
       comment.textContent = management.comentario || "Sin comentario.";
@@ -540,7 +630,6 @@ async function loadManagementHistory() {
     status.textContent = `No se pudo cargar el historial: ${error.message}`;
   }
 }
-
 async function loadDashboard() {
   const status = document.getElementById("dashboard-status");
 
@@ -564,6 +653,10 @@ async function loadDashboard() {
       summary.llamadas_ayer || 0;
     document.getElementById("metric-calls-total").textContent =
       summary.llamadas_acumuladas || 0;
+    document.getElementById("metric-gestions-today").textContent =
+      summary.gestiones_hoy || 0;
+    document.getElementById("metric-pending-followups").textContent =
+      summary.gestiones_pendientes || 0;
     document.getElementById("metric-promises").textContent =
       summary.cuentas_promesadas || 0;
     document.getElementById("metric-refusals").textContent =
@@ -580,51 +673,91 @@ async function loadDashboard() {
       `${progress}%`;
     document.getElementById("portfolio-progress-bar").style.width =
       `${progress}%`;
+    await loadTodayManagements();
     status.textContent = "Métricas actualizadas desde Supabase";
   } catch (error) {
     status.textContent = `No se pudieron actualizar las métricas: ${error.message}`;
   }
 }
 
-async function searchAccounts({ append = false } = {}) {
-  const term = searchInput.value.trim();
+async function loadTodayManagements() {
+  const status = document.getElementById("today-management-status");
+  const list = document.getElementById("today-management-list");
+  const date = document.getElementById("today-management-date");
+  status.textContent = "Cargando actividad…";
+  list.replaceChildren();
 
-  if (!term) {
-    searchStatus.textContent = "Escribe un crédito, teléfono, nombre o apellido.";
-    searchResults.replaceChildren();
-    loadMoreButton.hidden = true;
+  try {
+    const result = await getJson(`${API_URL}/api/gestiones/hoy?limite=20`);
+    date.textContent = new Date(`${result.fecha}T00:00:00`).toLocaleDateString(
+      "es-MX",
+      { weekday: "long", day: "numeric", month: "long", year: "numeric" },
+    );
+
+    if (!result.items.length) {
+      status.textContent = "Todavía no hay gestiones registradas hoy.";
+      return;
+    }
+
+    const groupedAccounts = new Map();
+    for (const management of result.items) {
+      const accountId = String(management.fk_cartera);
+      const existing = groupedAccounts.get(accountId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        groupedAccounts.set(accountId, { management, count: 1 });
+      }
+    }
+
+    status.textContent = `Actividad de ${groupedAccounts.size} cuenta(s) hoy`;
+    for (const [accountId, group] of groupedAccounts) {
+      const management = group.management;
+      const item = document.createElement("article");
+      item.className = "today-management-item";
+
+      const heading = document.createElement("div");
+      const customer = document.createElement("strong");
+      customer.textContent = management.cuenta?.cliente || "Cliente sin nombre";
+      const count = Number(result.conteos_por_cuenta?.[accountId] || group.count);
+      const countLabel = document.createElement("span");
+      countLabel.className = "today-management-count";
+      countLabel.textContent = `${count} ${count === 1 ? "gestión" : "gestiones"} hoy`;
+      heading.append(customer, countLabel);
+
+      const detail = document.createElement("p");
+      const time = management.fecha_gestion
+        ? new Date(management.fecha_gestion).toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+        : "Sin hora";
+      detail.textContent = [
+        RESULT_LABELS[management.codigo_resultado] || management.codigo_resultado,
+        management.persona_contactada,
+        management.cuenta?.numero_credito
+          ? `Crédito ${management.cuenta.numero_credito}`
+          : "",
+        time,
+      ].filter(Boolean).join(" · ");
+      item.append(heading, detail);
+      list.append(item);
+    }
+  } catch (error) {
+    status.textContent = `No se pudo cargar la actividad: ${error.message}`;
+  }
+}
+function updateSessionDuration() {
+  if (!sessionStartedAt) {
     return;
   }
 
-  if (!append || term !== currentSearch) {
-    currentSearch = term;
-    searchOffset = 0;
-    searchResults.replaceChildren();
-  }
-
-  searchStatus.textContent = "Buscando en la cartera…";
-  loadMoreButton.disabled = true;
-
-  try {
-    const params = new URLSearchParams({
-      buscar: currentSearch,
-      limite: String(PAGE_SIZE),
-      desde: String(searchOffset),
-    });
-    const result = await getJson(`${API_URL}/api/carteras?${params}`);
-
-    appendAccountRows(searchResults, result.items);
-    searchOffset += result.items.length;
-    searchStatus.textContent = result.items.length
-      ? `Se muestran ${searchOffset} resultado(s).`
-      : "No se encontraron más cuentas con esos datos.";
-    loadMoreButton.hidden = !result.hay_mas;
-  } catch (error) {
-    searchStatus.textContent = error.message;
-    loadMoreButton.hidden = true;
-  } finally {
-    loadMoreButton.disabled = false;
-  }
+  const elapsedSeconds = Math.floor((Date.now() - sessionStartedAt) / 1000);
+  const hours = String(Math.floor(elapsedSeconds / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((elapsedSeconds % 3600) / 60)).padStart(2, "0");
+  const seconds = String(elapsedSeconds % 60).padStart(2, "0");
+  document.getElementById("session-duration").textContent =
+    `${hours}:${minutes}:${seconds}`;
 }
 
 async function loadPortfolio({ append = false } = {}) {
@@ -694,9 +827,6 @@ uploadForm.addEventListener("submit", async (event) => {
     fileName.textContent = "Ningún archivo seleccionado";
 
     await loadDashboard();
-    if (searchInput.value.trim()) {
-      await searchAccounts();
-    }
     if (!portfolioList.hidden || portfolioLoaded) {
       await loadPortfolio();
     }
@@ -707,15 +837,6 @@ uploadForm.addEventListener("submit", async (event) => {
     importButton.disabled = false;
     importButton.textContent = "Importar cartera";
   }
-});
-
-searchForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  searchAccounts();
-});
-
-loadMoreButton.addEventListener("click", () => {
-  searchAccounts({ append: true });
 });
 
 portfolioButton.addEventListener("click", () => {
@@ -741,6 +862,8 @@ loginForm.addEventListener("submit", async (event) => {
 
   loginScreen.hidden = true;
   workspace.hidden = false;
+  sessionStartedAt = Date.now();
+  updateSessionDuration();
   loginPassword.value = "";
   loginStatus.textContent = "";
   showView("home");
@@ -775,11 +898,51 @@ async function logout() {
 
   workspace.hidden = true;
   loginScreen.hidden = false;
+  sessionStartedAt = null;
+  document.getElementById("session-duration").textContent = "00:00:00";
   loginForm.reset();
 }
 
 document.getElementById("logout-button").addEventListener("click", logout);
 document.getElementById("top-logout-button").addEventListener("click", logout);
+
+document.getElementById("report-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const status = document.getElementById("report-status");
+  const button = document.getElementById("download-report");
+  const params = new URLSearchParams();
+  const startDate = document.getElementById("report-start-date").value;
+  const endDate = document.getElementById("report-end-date").value;
+  const result = document.getElementById("report-result").value;
+
+  if (startDate) params.set("fecha_inicio", startDate);
+  if (endDate) params.set("fecha_fin", endDate);
+  if (result) params.set("codigo_resultado", result);
+
+  button.disabled = true;
+  status.textContent = "Preparando el archivo Excel…";
+  try {
+    const response = await fetch(
+      `${API_URL}/api/reportes/gestiones.xlsx?${params}`,
+    );
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "No se pudo crear el reporte.");
+    }
+
+    const workbook = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(workbook);
+    link.download = "reporte_gestiones.xlsx";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    status.textContent = "Reporte descargado correctamente.";
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
 
 document.querySelectorAll(".sidebar-brand, .login-brand .brand").forEach((brand) => {
   brand.addEventListener("click", (event) => {
@@ -807,8 +970,71 @@ callResultSelect.addEventListener("change", () => {
   document.getElementById("promise-amount").required = isPromise;
   if (noContact) {
     document.getElementById("contact-status").value = "sin_contacto";
+    personContactedSelect.value = "sin_contacto";
   } else if (document.getElementById("contact-status").value === "sin_contacto") {
     document.getElementById("contact-status").value = "titular";
+    personContactedSelect.value = "titular";
+  }
+});
+
+personContactedSelect.addEventListener("change", () => {
+  if (personContactedSelect.value === "sin_contacto") {
+    document.getElementById("contact-status").value = "sin_contacto";
+  } else if (personContactedSelect.value.startsWith("referencia")) {
+    document.getElementById("contact-status").value = "tercero";
+  } else if (personContactedSelect.value) {
+    document.getElementById("contact-status").value = "titular";
+  }
+});
+
+document.getElementById("management-result-filter").addEventListener(
+  "change",
+  loadManagementHistory,
+);
+
+document.getElementById("toggle-reference-form").addEventListener("click", () => {
+  referenceForm.hidden = !referenceForm.hidden;
+  if (!referenceForm.hidden) {
+    document.getElementById("reference-name").focus();
+  }
+});
+
+referenceForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedAccount || !referenceForm.reportValidity()) {
+    return;
+  }
+
+  const status = document.getElementById("reference-status");
+  const saveButton = document.getElementById("save-reference");
+  saveButton.disabled = true;
+  status.textContent = "Guardando referencia…";
+
+  try {
+    const result = await getJson(
+      `${API_URL}/api/carteras/${selectedAccount.id_cartera}/referencias`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: document.getElementById("reference-name").value.trim(),
+          telefono: document.getElementById("reference-phone").value.trim(),
+          parentesco: document.getElementById("reference-relationship").value.trim() || null,
+          domicilio: document.getElementById("reference-address").value.trim() || null,
+        }),
+      },
+    );
+    selectedAccount = { ...selectedAccount, ...result.referencia };
+    renderAccountDetails(selectedAccount);
+    syncContactOptions(selectedAccount);
+    referenceForm.reset();
+    referenceForm.hidden = true;
+    document.getElementById("toggle-reference-form").hidden = true;
+    status.textContent = result.mensaje;
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    saveButton.disabled = false;
   }
 });
 
@@ -825,6 +1051,8 @@ managementForm.addEventListener("submit", async (event) => {
   const payload = {
     fk_cartera: selectedAccount.id_cartera,
     estatus_contacto: document.getElementById("contact-status").value,
+    persona_contactada: getContactName(personContactedSelect.value),
+    telefono_contactado: getContactPhone(personContactedSelect.value),
     codigo_resultado: resultCode,
     comentario: document.getElementById("management-comment").value.trim() || null,
     fecha_promesa: isPromise
@@ -874,6 +1102,13 @@ document.getElementById("today-date").textContent = new Intl.DateTimeFormat(
   "es-MX",
   { day: "numeric", month: "short", year: "numeric" },
 ).format(new Date());
+
+window.setInterval(updateSessionDuration, 1000);
+window.setInterval(() => {
+  if (!workspace.hidden) {
+    loadDashboard();
+  }
+}, 60000);
 
 loadFinancialOptions().catch((error) => {
   financialSelect.replaceChildren(new Option("No disponibles", ""));

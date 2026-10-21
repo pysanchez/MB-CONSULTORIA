@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f5f7f8">
+    <meta name="theme-color" content="#f3f3f3">
     <title>
       MB CONSULTORIA | CRM de cobranza
     </title>
@@ -108,12 +108,6 @@
               </span>
               Inicio
             </button>
-            <button id="nav-search" class="nav-link" type="button" data-view="search">
-              <span class="nav-icon">
-                ⌕
-              </span>
-              Buscar cuenta
-            </button>
             <button id="nav-portfolio" class="nav-link" type="button" data-view="portfolio">
               <span class="nav-icon">
                 ▤
@@ -129,6 +123,10 @@
             <button id="nav-upload" class="nav-link" type="button" data-view="upload">
               <span class="nav-icon">↑</span>
               Cargar cartera
+            </button>
+            <button id="nav-reports" class="nav-link" type="button" data-view="reports">
+              <span class="nav-icon">▧</span>
+              Reportes
             </button>
           </nav>
           <div class="sidebar-bottom">
@@ -174,6 +172,9 @@
               </b>
             </div>
             <div class="top-actions">
+              <span class="session-duration" aria-live="off">
+                Conectado <b id="session-duration">00:00:00</b>
+              </span>
               <span class="today">
                 Hoy
               </span>
@@ -233,6 +234,16 @@
                 <div class="metric-foot">
                   <span>BORDER CREDIT: <b id="metric-border-accounts">0</b></span>
                   <span>FINORE: <b id="metric-finore-accounts">0</b></span>
+                </div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span>Gestiones realizadas hoy</span>
+                  <span class="metric-symbol blue">☏</span>
+                </div>
+                <strong id="metric-gestions-today">0</strong>
+                <div class="metric-foot">
+                  Actualizado con la fecha del día
                 </div>
               </article>
               <article class="metric-card">
@@ -299,7 +310,8 @@
                   0
                 </strong>
                 <div class="metric-foot">
-                  Pendientes de respuesta
+                  Cuentas con último resultado pendiente:
+                  <b id="metric-pending-followups">0</b>
                 </div>
               </article>
               <article class="metric-card">
@@ -318,6 +330,17 @@
                   Reportados por clientes
                 </div>
               </article>
+            </section>
+            <section class="today-management-card" aria-labelledby="today-management-title">
+              <div class="today-management-heading">
+                <div>
+                  <span class="eyebrow">ACTIVIDAD DEL DÍA</span>
+                  <h2 id="today-management-title">Gestiones de hoy</h2>
+                </div>
+                <time id="today-management-date"></time>
+              </div>
+              <p id="today-management-status" class="management-status" role="status" aria-live="polite"></p>
+              <div id="today-management-list" class="today-management-list"></div>
             </section>
             <footer class="page-footer">
               © 2026 MB CONSULTORIA
@@ -357,52 +380,42 @@
               </p>
             </section>
           </div>
-          <div id="view-search" class="content crm-view" hidden>
-            <section id="buscar" class="search-card">
-              <div class="search-copy">
-                <span class="search-icon">
-                  ⌕
-                </span>
-                <div>
-                  <h2>
-                    Busca una cuenta
-                  </h2>
-                  <p class="muted">
-                    Busca por número de crédito, teléfono o nombre y apellidos. Puedes escribir solo una parte.
-                  </p>
-                </div>
-              </div>
-              <form id="search-form" class="search-form">
-                <label class="sr-only" for="busqueda">
-                  Crédito, teléfono o nombre del cliente
+          <section id="view-reports" class="content crm-view" hidden>
+            <section class="upload-card" aria-labelledby="reports-title">
+              <span class="eyebrow">ANÁLISIS Y DESCARGAS</span>
+              <h1 id="reports-title">Reporte de gestiones</h1>
+              <p class="muted">Descarga un archivo Excel y, si quieres, filtra por fechas o resultado.</p>
+              <form id="report-form" class="report-form">
+                <label class="management-field" for="report-start-date">
+                  Fecha inicial
+                  <input id="report-start-date" type="date">
                 </label>
-                <span>
-                  ⌕
-                </span>
-                <input id="busqueda" type="search" placeholder="Crédito, teléfono, nombre o apellido">
-                <button class="button button-primary" type="submit">
-                  Buscar cuenta
-                </button>
+                <label class="management-field" for="report-end-date">
+                  Fecha final
+                  <input id="report-end-date" type="date">
+                </label>
+                <label class="management-field" for="report-result">
+                  Resultado
+                  <select id="report-result">
+                    <option value="">Todos</option>
+                    <option value="promesa">Promesa</option>
+                    <option value="negativa">Negativa</option>
+                    <option value="recado">Recado</option>
+                    <option value="pago_reportado">Pago reportado</option>
+                    <option value="sin_acuerdo">Sin acuerdo</option>
+                    <option value="no_contesto">No contestó</option>
+                    <option value="numero_incorrecto">Número incorrecto</option>
+                  </select>
+                </label>
+                <div class="report-actions">
+                  <p id="report-status" class="management-status" role="status" aria-live="polite"></p>
+                  <button id="download-report" class="button button-primary" type="submit">
+                    Descargar Excel
+                  </button>
+                </div>
               </form>
-              <div id="search-status" class="search-status" role="status" aria-live="polite"></div>
-              <div class="table-scroll">
-                <table class="results-table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th>
-                      <th>No. de crédito</th>
-                      <th>Teléfono</th>
-                      <th>Financiera</th>
-                      <th>Estatus</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="search-results"></tbody>
-                </table>
-              </div>
-              <button id="load-more" class="button button-secondary load-more" type="button" hidden>Mostrar más resultados</button>
             </section>
-          </div>
+          </section>
           <div id="view-portfolio" class="content crm-view" hidden>
             <section id="cartera" class="portfolio-card">
               <div class="portfolio-heading">
@@ -535,8 +548,52 @@
 
               <div id="account-details" class="account-details" aria-live="polite"></div>
 
+              <section class="reference-editor" aria-labelledby="reference-editor-title">
+                <div class="reference-editor-heading">
+                  <div>
+                    <span class="eyebrow">CONTACTOS</span>
+                    <h3 id="reference-editor-title">Agregar una referencia</h3>
+                  </div>
+                  <button id="toggle-reference-form" class="button button-secondary" type="button">
+                    Agregar referencia
+                  </button>
+                </div>
+                <form id="reference-form" class="reference-form" hidden>
+                  <label class="management-field" for="reference-name">
+                    Nombre completo
+                    <input id="reference-name" name="nombre" maxlength="150" required>
+                  </label>
+                  <label class="management-field" for="reference-phone">
+                    Teléfono
+                    <input id="reference-phone" name="telefono" type="tel" maxlength="30" required>
+                  </label>
+                  <label class="management-field" for="reference-relationship">
+                    Parentesco
+                    <input id="reference-relationship" name="parentesco" maxlength="80">
+                  </label>
+                  <label class="management-field" for="reference-address">
+                    Domicilio (opcional)
+                    <input id="reference-address" name="domicilio" maxlength="500">
+                  </label>
+                  <div class="management-submit-row">
+                    <p id="reference-status" class="management-status" role="status" aria-live="polite"></p>
+                    <button id="save-reference" class="button button-primary" type="submit">
+                      Guardar referencia
+                    </button>
+                  </div>
+                </form>
+              </section>
+
               <form id="management-form" class="management-form">
                 <input id="management-account-id" type="hidden" name="fk_cartera">
+                <label class="management-field" for="person-contacted">
+                  ¿A quién se llamó?
+                  <select id="person-contacted" name="persona_contactada" required>
+                    <option value="">Selecciona el contacto</option>
+                    <option value="titular">Titular</option>
+                    <option value="sin_contacto">No hubo contacto</option>
+                  </select>
+                </label>
                 <label class="management-field" for="contact-status">
                   ¿Con quién se tuvo contacto?
                   <select id="contact-status" name="estatus_contacto" required>
@@ -579,7 +636,22 @@
               </form>
 
               <div class="management-history">
-                <h3>Historial de gestiones</h3>
+                <div class="management-history-heading">
+                  <h3>Historial de gestiones</h3>
+                  <label for="management-result-filter">
+                    Filtrar por resultado
+                    <select id="management-result-filter">
+                      <option value="">Todos</option>
+                      <option value="promesa">Promesa</option>
+                      <option value="negativa">Negativa</option>
+                      <option value="recado">Recado</option>
+                      <option value="pago_reportado">Pago reportado</option>
+                      <option value="sin_acuerdo">Sin acuerdo</option>
+                      <option value="no_contesto">No contestó</option>
+                      <option value="numero_incorrecto">Número incorrecto</option>
+                    </select>
+                  </label>
+                </div>
                 <p id="management-history-status" class="management-status" role="status" aria-live="polite"></p>
                 <article id="latest-management-summary" class="latest-management-summary" hidden>
                   <span class="eyebrow">ÚLTIMA GESTIÓN REGISTRADA</span>

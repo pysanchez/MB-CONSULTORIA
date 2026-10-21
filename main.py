@@ -1,7 +1,8 @@
-﻿from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from datetime import date
 from decimal import Decimal
 from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -14,9 +15,10 @@ import time as system_time
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from supabase import Client, create_client
+import pandas as pd
 
 from excel_import import ImportFormatError, parse_cartera_file
 
@@ -56,6 +58,8 @@ elif AUTH_ENABLED and len(SESSION_SECRET) < 32:
 class GestionCreate(BaseModel):
     fk_cartera: int = Field(gt=0)
     estatus_contacto: Literal["titular", "tercero", "sin_contacto"]
+    persona_contactada: str = Field(min_length=1, max_length=200)
+    telefono_contactado: str | None = Field(default=None, max_length=30)
     codigo_resultado: Literal[
         "promesa",
         "negativa",
@@ -77,6 +81,13 @@ class GestionCreate(BaseModel):
 
 class LoginRequest(BaseModel):
     password: str = Field(default="", max_length=256)
+
+
+class ReferenciaCreate(BaseModel):
+    nombre: str = Field(min_length=2, max_length=150)
+    telefono: str = Field(min_length=7, max_length=30)
+    parentesco: str | None = Field(default=None, max_length=80)
+    domicilio: str | None = Field(default=None, max_length=500)
 
 app = FastAPI(
     title="MB CONSULTORIA CRM API",
@@ -420,21 +431,26 @@ def list_account_gestiones(
     fk_cartera: int,
     limite: int = Query(default=20, ge=1, le=100),
     desde: int = Query(default=0, ge=0),
+    codigo_resultado: str | None = Query(default=None, max_length=50),
 ) -> dict[str, object]:
     supabase = get_supabase()
 
     try:
-        response = (
+        query = (
             supabase.table("gestiones")
             .select(
                 "id_gestion,fk_cartera,fecha_gestion,tipo_contacto,estatus_contacto,"
-                "codigo_resultado,comentario,fecha_promesa,monto_promesa"
+                "codigo_resultado,persona_contactada,telefono_contactado,"
+                "comentario,fecha_promesa,monto_promesa"
             )
             .eq("fk_cartera", fk_cartera)
-            .order("fecha_gestion", desc=True)
-            .range(desde, desde + limite)
-            .execute()
         )
+        if codigo_resultado:
+            query = query.eq("codigo_resultado", codigo_resultado)
+        response = query.order("fecha_gestion", desc=True).range(
+            desde,
+            desde + limite,
+        ).execute()
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -487,7 +503,8 @@ def create_gestion(gestion: GestionCreate) -> dict[str, object]:
             .insert(record)
             .select(
                 "id_gestion,fk_cartera,fecha_gestion,tipo_contacto,estatus_contacto,"
-                "codigo_resultado,comentario,fecha_promesa,monto_promesa"
+                "codigo_resultado,persona_contactada,telefono_contactado,"
+                "comentario,fecha_promesa,monto_promesa"
             )
             .single()
             .execute()
@@ -498,12 +515,61 @@ def create_gestion(gestion: GestionCreate) -> dict[str, object]:
         raise HTTPException(
             status_code=502,
             detail=(
-                "No se pudo guardar la gestión. Confirma que aplicaste la migración 005 "
-                "para permitir gestiones sin agente asignado."
+                "No se pudo guardar la gestión. Confirma que aplicaste las migraciones "
+                "005 y 009 en Supabase."
             ),
         ) from exc
 
     return {"mensaje": "La gestión se registró correctamente.", "gestion": response.data}
+
+
+@app.post("/api/carteras/{fk_cartera}/referencias", status_code=201)
+def create_account_reference(
+    fk_cartera: int,
+    referencia: ReferenciaCreate,
+) -> dict[str, object]:
+    supabase = get_supabase()
+
+    try:
+        account_response = (
+            supabase.table("carteras")
+            .select("id_cartera,ref3_nombre,ref3_tel")
+            .eq("id_cartera", fk_cartera)
+            .limit(1)
+            .execute()
+        )
+        if not account_response.data:
+            raise HTTPException(status_code=404, detail="La cuenta seleccionada no existe.")
+
+        account = account_response.data[0]
+        if account.get("ref3_nombre") or account.get("ref3_tel"):
+            raise HTTPException(
+                status_code=409,
+                detail="La cuenta ya tiene una tercera referencia registrada.",
+            )
+
+        updated = (
+            supabase.table("carteras")
+            .update({
+                "ref3_nombre": referencia.nombre.strip(),
+                "ref3_tel": referencia.telefono.strip(),
+                "ref3_parentesco": referencia.parentesco,
+                "ref3_domicilio": referencia.domicilio,
+            })
+            .eq("id_cartera", fk_cartera)
+            .select("id_cartera,ref3_nombre,ref3_tel,ref3_parentesco,ref3_domicilio")
+            .single()
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo guardar la referencia. Confirma que aplicaste la migración 009.",
+        ) from exc
+
+    return {"mensaje": "La referencia se registró correctamente.", "referencia": updated.data}
 
 
 @app.get("/api/dashboard/general")
@@ -513,6 +579,7 @@ def get_general_dashboard() -> dict[str, object]:
     yesterday = now.date() - timedelta(days=1)
     start_of_yesterday = datetime.combine(yesterday, time.min)
     start_of_today = datetime.combine(now.date(), time.min)
+    start_of_tomorrow = start_of_today + timedelta(days=1)
 
     try:
         response = supabase.rpc(
@@ -522,12 +589,20 @@ def get_general_dashboard() -> dict[str, object]:
                 "p_inicio_hoy": start_of_today.isoformat(sep=" "),
             },
         ).execute()
+        today_count = (
+            supabase.table("gestiones")
+            .select("id_gestion", count="exact", head=True)
+            .gte("fecha_gestion", start_of_today.isoformat(sep=" "))
+            .lt("fecha_gestion", start_of_tomorrow.isoformat(sep=" "))
+            .execute()
+        ).count or 0
+        pending_count = supabase.rpc("resumen_seguimientos_pendientes").execute().data or 0
     except Exception as exc:
         raise HTTPException(
             status_code=502,
             detail=(
                 "No se pudo consultar el resumen general. "
-                "Confirma que aplicaste la migración 004 en Supabase."
+                "Confirma que aplicaste las migraciones 004 y 010 en Supabase."
             ),
         ) from exc
 
@@ -562,7 +637,204 @@ def get_general_dashboard() -> dict[str, object]:
         "alcance": "general",
         **summary,
         "cuentas_por_financiera": portfolio_counts,
+        "gestiones_hoy": today_count,
+        "gestiones_pendientes": pending_count,
     }
+
+
+@app.get("/api/gestiones/hoy")
+def list_today_gestiones(
+    limite: int = Query(default=20, ge=1, le=100),
+) -> dict[str, object]:
+    supabase = get_supabase()
+    now = datetime.now(LOCAL_TIMEZONE)
+    start_of_day = datetime.combine(now.date(), time.min)
+    start_of_tomorrow = start_of_day + timedelta(days=1)
+
+    try:
+        response = (
+            supabase.table("gestiones")
+            .select(
+                "id_gestion,fk_cartera,fecha_gestion,codigo_resultado,"
+                "persona_contactada,telefono_contactado,comentario"
+            )
+            .gte("fecha_gestion", start_of_day.isoformat(sep=" "))
+            .lt("fecha_gestion", start_of_tomorrow.isoformat(sep=" "))
+            .order("fecha_gestion", desc=True)
+            .range(0, limite - 1)
+            .execute()
+        )
+        count_response = (
+            supabase.table("gestiones")
+            .select("fk_cartera", count="exact")
+            .gte("fecha_gestion", start_of_day.isoformat(sep=" "))
+            .lt("fecha_gestion", start_of_tomorrow.isoformat(sep=" "))
+            .range(0, 999)
+            .execute()
+        )
+        count_rows = count_response.data or []
+        total_rows = count_response.count or len(count_rows)
+        offset = len(count_rows)
+
+        while offset < total_rows:
+            page = (
+                supabase.table("gestiones")
+                .select("fk_cartera")
+                .gte("fecha_gestion", start_of_day.isoformat(sep=" "))
+                .lt("fecha_gestion", start_of_tomorrow.isoformat(sep=" "))
+                .range(offset, offset + 999)
+                .execute()
+            )
+            page_rows = page.data or []
+            if not page_rows:
+                break
+            count_rows.extend(page_rows)
+            offset += len(page_rows)
+
+        counts_by_account: dict[str, int] = {}
+        for row in count_rows:
+            account_key = str(row["fk_cartera"])
+            counts_by_account[account_key] = counts_by_account.get(account_key, 0) + 1
+
+        management_items = response.data or []
+        account_ids = list({item["fk_cartera"] for item in management_items})
+        accounts = []
+        if account_ids:
+            accounts = (
+                supabase.table("carteras")
+                .select("id_cartera,cliente,numero_credito")
+                .in_("id_cartera", account_ids)
+                .execute()
+                .data
+                or []
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudieron consultar las gestiones de hoy. Confirma la migración 009.",
+        ) from exc
+
+    accounts_by_id = {account["id_cartera"]: account for account in accounts}
+    return {
+        "fecha": now.date().isoformat(),
+        "conteos_por_cuenta": counts_by_account,
+        "items": [
+            {**item, "cuenta": accounts_by_id.get(item["fk_cartera"])}
+            for item in management_items
+        ],
+    }
+
+
+@app.get("/api/reportes/gestiones.xlsx")
+def export_gestiones_xlsx(
+    fecha_inicio: date | None = None,
+    fecha_fin: date | None = None,
+    codigo_resultado: str | None = Query(default=None, max_length=50),
+) -> StreamingResponse:
+    if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
+        raise HTTPException(
+            status_code=422,
+            detail="La fecha inicial no puede ser posterior a la final.",
+        )
+
+    supabase = get_supabase()
+    fields = (
+        "id_gestion,fk_cartera,fecha_gestion,tipo_contacto,estatus_contacto,"
+        "persona_contactada,telefono_contactado,codigo_resultado,comentario,"
+        "fecha_promesa,monto_promesa"
+    )
+    management_items = []
+    page_size = 1000
+
+    try:
+        for page_start in range(0, 50000, page_size):
+            query = supabase.table("gestiones").select(fields)
+            if fecha_inicio:
+                query = query.gte(
+                    "fecha_gestion",
+                    datetime.combine(fecha_inicio, time.min).isoformat(sep=" "),
+                )
+            if fecha_fin:
+                query = query.lt(
+                    "fecha_gestion",
+                    datetime.combine(fecha_fin + timedelta(days=1), time.min).isoformat(sep=" "),
+                )
+            if codigo_resultado:
+                query = query.eq("codigo_resultado", codigo_resultado)
+            batch = (
+                query.order("fecha_gestion")
+                .range(page_start, page_start + page_size - 1)
+                .execute()
+                .data
+                or []
+            )
+            management_items.extend(batch)
+            if len(batch) < page_size:
+                break
+
+        if len(management_items) >= 50000:
+            raise HTTPException(
+                status_code=413,
+                detail="El reporte supera 50,000 gestiones. Limita el rango de fechas.",
+            )
+
+        account_ids = list({item["fk_cartera"] for item in management_items})
+        accounts_by_id = {}
+        for start in range(0, len(account_ids), 500):
+            account_batch = (
+                supabase.table("carteras")
+                .select("id_cartera,cliente,numero_credito,fk_financiera")
+                .in_("id_cartera", account_ids[start:start + 500])
+                .execute()
+                .data
+                or []
+            )
+            accounts_by_id.update({item["id_cartera"]: item for item in account_batch})
+
+        financial_ids = list({item["fk_financiera"] for item in accounts_by_id.values()})
+        financials = (
+            supabase.table("financieras")
+            .select("id_financiera,nombre_financiera")
+            .in_("id_financiera", financial_ids)
+            .execute()
+            .data
+            if financial_ids
+            else []
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="No se pudo generar el reporte.") from exc
+
+    financials_by_id = {
+        item["id_financiera"]: item["nombre_financiera"]
+        for item in financials
+    }
+    rows = []
+    for management in management_items:
+        account = accounts_by_id.get(management["fk_cartera"], {})
+        rows.append({
+            "Fecha y hora": management.get("fecha_gestion"),
+            "Cliente": account.get("cliente"),
+            "Número de crédito": account.get("numero_credito"),
+            "Financiera": financials_by_id.get(account.get("fk_financiera")),
+            "Persona contactada": management.get("persona_contactada"),
+            "Teléfono contactado": management.get("telefono_contactado"),
+            "Resultado": management.get("codigo_resultado"),
+            "Tipo de contacto": management.get("estatus_contacto"),
+            "Comentario": management.get("comentario"),
+            "Fecha promesa": management.get("fecha_promesa"),
+            "Monto promesa": management.get("monto_promesa"),
+        })
+
+    workbook = BytesIO()
+    pd.DataFrame(rows).to_excel(workbook, index=False, engine="openpyxl")
+    workbook.seek(0)
+    return StreamingResponse(
+        workbook,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="reporte_gestiones.xlsx"'},
+    )
 
 
 @app.get("/api/dashboard/{fk_agente}")

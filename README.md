@@ -7,7 +7,7 @@ CRM en FastAPI para servir la interfaz, conectar con Supabase e importar cartera
 1. Crea y activa un entorno virtual: `python -m venv .venv`.
 2. Instala las dependencias: `pip install -r requirements.txt`.
 3. Copia `.env.example` como `.env` y completa `SUPABASE_URL` y `SUPABASE_SECRET_KEY`.
-4. Ejecuta, en orden, las migraciones `001_excel_cartera_fields.sql` a `008_finore_layout_and_import_key.sql` desde el SQL Editor de Supabase.
+4. Ejecuta, en orden, las migraciones `001_excel_cartera_fields.sql` a `010_pending_followups_metric.sql` desde el SQL Editor de Supabase.
 5. Inicia la API: `python main.py`.
 6. Sirve la carpeta con Live Server en el puerto 5500 y abre la página. La API también documenta sus rutas en `http://127.0.0.1:8000/docs`.
 
@@ -22,9 +22,12 @@ La secret key debe permanecer solo en el backend. No la incluyas en HTML, CSS ni
 - `GET /api/carteras`: lista o busca cuentas por crédito, teléfonos o palabras parciales del nombre; admite filtros y paginación en Supabase.
 - `GET /api/dashboard/general`: devuelve el resumen global de cuentas, llamadas, promesas, negativas, recados y pagos mientras no existe autenticación por agente.
 - `GET /api/dashboard/{fk_agente}`: devuelve las mismas métricas para un agente registrado.
+- `GET /api/gestiones/hoy`: lista las últimas gestiones del día local.
+- `GET /api/reportes/gestiones.xlsx`: descarga un Excel filtrable por fecha y resultado.
 - `GET /api/carteras/{fk_cartera}/gestiones`: devuelve el historial paginado de una cuenta.
 - `POST /api/gestiones`: registra una llamada y su resultado para una cuenta.
-- `POST /api/carteras/importar`: valida el layout y crea o actualiza cuentas en `carteras`.
+- `POST /api/carteras/{fk_cartera}/referencias`: agrega la tercera referencia de una cuenta.
+- `POST /api/carteras/importar`: valida el layout, agrega cuentas nuevas y omite claves ya existentes.
 
 ## Importación de la cartera
 
@@ -38,7 +41,7 @@ La búsqueda utiliza la función SQL `buscar_carteras` para consultar coincidenc
 
 El resumen de inicio utiliza `resumen_dashboard_general` para calcular las métricas directamente en Supabase. La sección “Mi cartera” muestra temporalmente la cartera general y pagina las cuentas; se podrá filtrar por agente cuando haya cuentas individuales.
 
-La vista “Registrar gestión” permite buscar una cuenta, guardar el resultado y comentario de una llamada y consultar su historial. Las promesas solicitan fecha y monto. Mientras no exista login, las gestiones se guardan con `fk_agente = NULL`; la migración 005 habilita ese flujo y actualiza en la cuenta el total y el último resultado de gestión.
+La vista “Registrar gestión” permite buscar una cuenta, seleccionar a quién se llamó, guardar el resultado y comentario, filtrar el historial y consultar su detalle. También permite agregar una tercera referencia a la cuenta. Las promesas solicitan fecha y monto. Mientras no exista login por agente, las gestiones se guardan con `fk_agente = NULL`; las migraciones 005 y 009 habilitan ese flujo y almacenan la persona contactada. El inicio muestra gestiones de hoy, actualiza métricas cada minuto y combina recados con llamadas no contestadas cuyo último resultado requiere seguimiento. La vista “Reportes” descarga gestiones filtradas por fecha y resultado en Excel.
 
 Las métricas de gestión buscan `llamada`, `promesa`, `negativa` y `recado` en los campos de tipo y resultado. Conviene usar esos términos consistentemente al guardar las gestiones.
 
