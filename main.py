@@ -431,6 +431,73 @@ def list_carteras(
     }
 
 
+@app.get("/api/carteras/por-numero-credito")
+def get_carteras_by_credit(
+    numero_credito: str = Query(..., min_length=1, max_length=100),
+) -> dict[str, list[dict[str, object]]]:
+    credit_number = numero_credito.strip()
+    if not credit_number:
+        raise HTTPException(
+            status_code=422,
+            detail="El número de crédito es obligatorio.",
+        )
+
+    supabase = get_supabase()
+    try:
+        accounts = (
+            supabase.table("carteras")
+            .select("*")
+            .eq("numero_credito", credit_number)
+            .order("id_cartera")
+            .limit(10)
+            .execute()
+            .data
+            or []
+        )
+        agent_ids = list({account["fk_agente"] for account in accounts if account.get("fk_agente")})
+        finance_ids = list({account["fk_financiera"] for account in accounts if account.get("fk_financiera")})
+
+        agents = []
+        if agent_ids:
+            agents = (
+                supabase.table("agentes")
+                .select("id_agente,nombre_agente")
+                .in_("id_agente", agent_ids)
+                .execute()
+                .data
+                or []
+            )
+
+        finances = []
+        if finance_ids:
+            finances = (
+                supabase.table("financieras")
+                .select("id_financiera,nombre_financiera")
+                .in_("id_financiera", finance_ids)
+                .execute()
+                .data
+                or []
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo buscar el número de crédito en Supabase.",
+        ) from exc
+
+    agents_by_id = {agent["id_agente"]: agent for agent in agents}
+    finances_by_id = {finance["id_financiera"]: finance for finance in finances}
+    return {
+        "items": [
+            {
+                **account,
+                "agente": agents_by_id.get(account.get("fk_agente")),
+                "financiera": finances_by_id.get(account.get("fk_financiera")),
+            }
+            for account in accounts
+        ],
+    }
+
+
 @app.get("/api/carteras/{fk_cartera}/gestiones")
 def list_account_gestiones(
     fk_cartera: int,

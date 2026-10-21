@@ -20,6 +20,7 @@ La secret key debe permanecer solo en el backend. No la incluyas en HTML, CSS ni
 - `GET /api/financieras`: lista las financieras para el selector de carga.
 - `GET /api/agentes`: lista los agentes registrados.
 - `GET /api/carteras`: lista o busca cuentas por crédito, teléfonos o palabras parciales del nombre; admite filtros y paginación en Supabase.
+- `GET /api/carteras/por-numero-credito`: busca coincidencias exactas para abrir desde NBX/VICIdial.
 - `GET /api/dashboard/general`: devuelve el resumen global de cuentas, llamadas, promesas, negativas, recados y pagos mientras no existe autenticación por agente.
 - `GET /api/dashboard/{fk_agente}`: devuelve las mismas métricas para un agente registrado.
 - `GET /api/gestiones/hoy`: lista las últimas gestiones del día local.
@@ -44,6 +45,18 @@ El resumen de inicio utiliza `resumen_dashboard_general` para calcular las métr
 La vista “Registrar gestión” permite buscar una cuenta, seleccionar a quién se llamó, guardar el resultado y comentario, filtrar el historial y consultar su detalle. También permite agregar una tercera referencia a la cuenta. Las promesas solicitan fecha y monto. Mientras no exista login por agente, las gestiones se guardan con `fk_agente = NULL`; las migraciones 005 y 009 habilitan ese flujo y almacenan la persona contactada. El inicio muestra gestiones de hoy, actualiza métricas cada minuto y combina recados con llamadas no contestadas cuyo último resultado requiere seguimiento. La vista “Reportes” descarga gestiones filtradas por fecha y resultado en Excel.
 
 Las métricas de gestión buscan `llamada`, `promesa`, `negativa` y `recado` en los campos de tipo y resultado. Conviene usar esos términos consistentemente al guardar las gestiones.
+
+## Integración con NBX/VICIdial
+
+El CRM acepta `?credito=NUMERO` en su URL. Tras iniciar sesión, busca ese número de crédito directamente en Supabase y abre la cuenta si hay una sola coincidencia. Si aparece en más de una financiera, muestra las opciones para elegir.
+
+En la campaña de VICIdial (por ejemplo, la 005), configura el campo Web Form con una URL como:
+
+```text
+VARhttps://mb-consultoria.onrender.com/?credito=--A--vendor_lead_code--B--
+```
+
+Este ejemplo supone que `vendor_lead_code` contiene el número de crédito. Si NBX lo guarda en otro campo, usa el marcador de ese campo, como `user_custom_one`. Configura el Web Form para abrir en una pestaña o ventana principal si esa opción está disponible; así el CRM conserva su sesión de inicio. La documentación de VICIdial describe el prefijo `VAR` y los marcadores `--A--campo--B--`.
 
 ## Despliegue en Render
 

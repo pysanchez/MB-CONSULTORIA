@@ -4,6 +4,15 @@ const API_URL = isLocalFrontend
   ? `${window.location.protocol}//${window.location.hostname}:8000`
   : "";
 const PAGE_SIZE = 50;
+const pendingCreditNumber = new URLSearchParams(window.location.search)
+  .get("credito")
+  ?.trim() || "";
+
+if (pendingCreditNumber) {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("credito");
+  window.history.replaceState({}, "", cleanUrl);
+}
 const RESULT_LABELS = {
   promesa: "Promesa de pago",
   negativa: "Negativa de pago",
@@ -409,6 +418,57 @@ function showView(viewName) {
     loadDashboard();
   } else if (viewName === "portfolio" && !portfolioLoaded) {
     loadPortfolio();
+  }
+}
+
+async function openCreditFromNbx() {
+  if (!pendingCreditNumber) {
+    return;
+  }
+
+  showView("management");
+  managementSearchInput.value = pendingCreditNumber;
+  managementSearchStatus.textContent = "Buscando el crédito recibido desde NBX…";
+  managementAccountResults.replaceChildren();
+
+  try {
+    const params = new URLSearchParams({ numero_credito: pendingCreditNumber });
+    const result = await getJson(
+      `${API_URL}/api/carteras/por-numero-credito?${params}`,
+    );
+
+    if (!result.items.length) {
+      managementSearchStatus.textContent =
+        `No se encontró el crédito ${pendingCreditNumber} en la cartera.`;
+      return;
+    }
+
+    if (result.items.length === 1) {
+      managementSearchStatus.textContent = "Cuenta abierta desde NBX.";
+      selectAccount(result.items[0]);
+      return;
+    }
+
+    managementSearchStatus.textContent =
+      `El crédito ${pendingCreditNumber} aparece en varias financieras. Selecciona la cuenta correcta.`;
+
+    for (const account of result.items) {
+      const option = document.createElement("button");
+      option.className = "account-choice";
+      option.type = "button";
+
+      const name = document.createElement("strong");
+      name.textContent = account.cliente || "Cliente sin nombre";
+      const detail = document.createElement("span");
+      detail.textContent = account.financiera?.nombre_financiera
+        || "Financiera sin dato";
+      option.append(name, detail);
+      option.addEventListener("click", () => selectAccount(account));
+      managementAccountResults.append(option);
+    }
+  } catch (error) {
+    managementSearchStatus.textContent =
+      `No se pudo abrir el crédito recibido desde NBX: ${error.message}`;
   }
 }
 
@@ -867,10 +927,11 @@ loginForm.addEventListener("submit", async (event) => {
   updateSessionDuration();
   loginPassword.value = "";
   loginStatus.textContent = "";
-  showView("home");
+  showView(pendingCreditNumber ? "management" : "home");
 
   try {
     await loadFinancialOptions();
+    await openCreditFromNbx();
   } catch (error) {
     financialSelect.replaceChildren(new Option("No disponibles", ""));
     importStatus.textContent = `${error.message} Confirma que FastAPI esté iniciado.`;
