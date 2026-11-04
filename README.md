@@ -5,7 +5,7 @@ CRM en FastAPI para servir la interfaz, conectar con Supabase e importar cartera
 ## Preparación
 
 1. Crea y activa un entorno virtual: `python -m venv .venv`.
-2. Instala las dependencias: `pip install -r backend/requirements.txt`.
+2. Instala las dependencias: `pip install -r requirements.txt` (el archivo de la raíz las delega a `backend/requirements.txt`).
 3. Copia `.env.example` como `.env` y completa `SUPABASE_URL` y `SUPABASE_SECRET_KEY`.
 4. Ejecuta, en orden, las migraciones `001_excel_cartera_fields.sql` a `011_management_import.sql` desde el SQL Editor de Supabase.
 5. Inicia Uvicorn desde la raíz del proyecto con el módulo del paquete: `python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000`. También puedes usar `python -m backend.main`.
@@ -72,7 +72,7 @@ Este ejemplo supone que el número de crédito está guardado en el campo **Firs
 
 ## Despliegue en Render
 
-El archivo `render.yaml` permanece en la raíz y configura un solo servicio web que sirve la página y la API bajo el mismo dominio. Render instala `backend/requirements.txt` y ejecuta `backend.main:app` en el puerto que proporciona mediante `PORT`.
+El archivo `render.yaml` permanece en la raíz y configura un solo servicio web que sirve la página y la API bajo el mismo dominio. Render instala `requirements.txt` desde la raíz; este incluye `backend/requirements.txt`. El servicio ejecuta `backend.main:app` en el puerto que proporciona mediante `PORT`. Deja **Root Directory** vacío en Render para que los comandos y las carpetas `frontend/` y `adjuntos/` estén disponibles desde la raíz del repositorio.
 
 1. En Render, crea un Blueprint desde el repositorio y selecciona `render.yaml`.
 2. Cuando Render lo solicite, agrega `SUPABASE_URL` y `SUPABASE_SECRET_KEY` como variables secretas.
