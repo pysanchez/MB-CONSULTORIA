@@ -20,13 +20,32 @@ from pydantic import BaseModel, Field
 from supabase import Client, create_client
 import pandas as pd
 
-from excel_import import ImportFormatError, parse_cartera_file
+if __package__:
+    from .excel_import import (
+        ImportFormatError,
+        normalize_identifier,
+        parse_cartera_file,
+    )
+    from .management_import import (
+        parse_gestiones_file,
+    )
+else:
+    from excel_import import (
+        ImportFormatError,
+        normalize_identifier,
+        parse_cartera_file,
+    )
+    from management_import import (
+        parse_gestiones_file,
+    )
 
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
+ATTACHMENTS_DIR = PROJECT_ROOT / "adjuntos"
+load_dotenv(PROJECT_ROOT / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", "").strip()
@@ -61,13 +80,28 @@ class GestionCreate(BaseModel):
     persona_contactada: str = Field(min_length=1, max_length=200)
     telefono_contactado: str | None = Field(default=None, max_length=30)
     codigo_resultado: Literal[
-        "promesa",
-        "negativa",
-        "recado",
-        "pago_reportado",
-        "sin_acuerdo",
-        "no_contesto",
-        "numero_incorrecto",
+        "01.-Sin gestion",
+        "02.-Pago parcial",
+        "03.-Cuenta regularizada",
+        "04.-Convenio Liquidacion",
+        "05.-Promesa de Pago",
+        "06.-Convenio roto",
+        "07.-Promesa incumplida",
+        "08.-Seguimiento",
+        "09.-Mnje con fam",
+        "10.- Mnje trabajo",
+        "11.-Mnje con ref",
+        "12.-Liquidacion",
+        "13.-No contesta",
+        "14.-Buzon",
+        "15.-No lo conoce",
+        "16.-Fuera de servicio",
+        "17.-No enlaza",
+        "18.-Defuncion",
+        "19.-Cliente evasivo",
+        "20.-Negativa",
+        "21.-Aclaracion",
+        "22.-Retiro x financiera",
     ]
     comentario: str | None = Field(default=None, max_length=5000)
     fecha_promesa: date | None = None
@@ -189,22 +223,23 @@ def get_supabase() -> Client:
 
 @app.get("/", include_in_schema=False)
 def serve_homepage() -> FileResponse:
-    return FileResponse(BASE_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/style.css", include_in_schema=False)
 def serve_stylesheet() -> FileResponse:
-    return FileResponse(BASE_DIR / "style.css", media_type="text/css")
+    return FileResponse(FRONTEND_DIR / "style.css", media_type="text/css")
 
 
 @app.get("/app.js", include_in_schema=False)
 def serve_frontend_script() -> FileResponse:
-    return FileResponse(BASE_DIR / "app.js", media_type="text/javascript")
+    return FileResponse(FRONTEND_DIR / "app.js", media_type="text/javascript")
 
 
 @app.get("/mbconsultoria.jpeg", include_in_schema=False)
+@app.get("/adjuntos/mbconsultoria.jpeg", include_in_schema=False)
 def serve_login_logo() -> FileResponse:
-    return FileResponse(BASE_DIR / "mbconsultoria.jpeg", media_type="image/jpeg")
+    return FileResponse(ATTACHMENTS_DIR / "mbconsultoria.jpeg", media_type="image/jpeg")
 
 
 @app.post("/api/auth/login")
@@ -544,7 +579,7 @@ def list_account_gestiones(
 def create_gestion(gestion: GestionCreate) -> dict[str, object]:
     supabase = get_supabase()
 
-    if gestion.codigo_resultado == "promesa":
+    if gestion.codigo_resultado == "05.-Promesa de Pago":
         if gestion.fecha_promesa is None or gestion.monto_promesa is None:
             raise HTTPException(
                 status_code=422,
@@ -566,7 +601,11 @@ def create_gestion(gestion: GestionCreate) -> dict[str, object]:
             raise HTTPException(status_code=404, detail="La cuenta seleccionada no existe.")
 
         record = gestion.model_dump(mode="json")
-        record["tipo_contacto"] = "llamada"
+        record["tipo_contacto"] = (
+            "sin_gestion"
+            if gestion.codigo_resultado == "01.-Sin gestion"
+            else "llamada"
+        )
         record["fk_agente"] = None
         record["fecha_gestion"] = datetime.now(LOCAL_TIMEZONE).replace(
             tzinfo=None,
@@ -675,7 +714,7 @@ def get_general_dashboard() -> dict[str, object]:
             status_code=502,
             detail=(
                 "No se pudo consultar el resumen general. "
-                "Confirma que aplicaste las migraciones 004 y 010 en Supabase."
+                "Confirma que aplicaste las migraciones 004, 010 y 011 en Supabase."
             ),
         ) from exc
 
@@ -794,6 +833,102 @@ def list_today_gestiones(
         "items": [
             {**item, "cuenta": accounts_by_id.get(item["fk_cartera"])}
             for item in management_items
+        ],
+    }
+
+
+@app.get("/api/gestiones/promesas-hoy")
+def list_today_promises() -> dict[str, object]:
+    supabase = get_supabase()
+    today = datetime.now(LOCAL_TIMEZONE).date()
+    promises_by_account: dict[int, dict[str, object]] = {}
+    page_size = 1000
+
+    try:
+        for page_start in range(0, 51000, page_size):
+            batch = (
+                supabase.table("gestiones")
+                .select(
+                    "id_gestion,fk_cartera,fecha_gestion,fecha_promesa,monto_promesa"
+                )
+                .eq("codigo_resultado", "05.-Promesa de Pago")
+                .eq("fecha_promesa", today.isoformat())
+                .order("fecha_gestion", desc=True)
+                .order("id_gestion", desc=True)
+                .range(page_start, page_start + page_size - 1)
+                .execute()
+                .data
+                or []
+            )
+            if page_start == 50000:
+                if batch:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Hay más de 50,000 promesas para hoy; limita el volumen antes de consultarlas.",
+                    )
+                break
+
+            for promise in batch:
+                promises_by_account.setdefault(promise["fk_cartera"], promise)
+            if len(batch) < page_size:
+                break
+
+        account_ids = list(promises_by_account)
+        accounts_by_id: dict[int, dict[str, object]] = {}
+        for start in range(0, len(account_ids), 500):
+            account_batch = (
+                supabase.table("carteras")
+                .select("*")
+                .in_("id_cartera", account_ids[start:start + 500])
+                .execute()
+                .data
+                or []
+            )
+            accounts_by_id.update({
+                account["id_cartera"]: account
+                for account in account_batch
+            })
+
+        financial_ids = list({
+            account["fk_financiera"]
+            for account in accounts_by_id.values()
+            if account.get("fk_financiera")
+        })
+        financials = (
+            supabase.table("financieras")
+            .select("id_financiera,nombre_financiera")
+            .in_("id_financiera", financial_ids)
+            .execute()
+            .data
+            if financial_ids
+            else []
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudieron consultar las promesas con vencimiento hoy.",
+        ) from exc
+
+    financials_by_id = {
+        financial["id_financiera"]: financial
+        for financial in financials
+    }
+    return {
+        "fecha": today.isoformat(),
+        "items": [
+            {
+                **promise,
+                "cuenta": {
+                    **accounts_by_id[promise["fk_cartera"]],
+                    "financiera": financials_by_id.get(
+                        accounts_by_id[promise["fk_cartera"]].get("fk_financiera")
+                    ),
+                },
+            }
+            for promise in promises_by_account.values()
+            if promise["fk_cartera"] in accounts_by_id
         ],
     }
 
@@ -937,9 +1072,17 @@ def get_dashboard(fk_agente: int) -> dict[str, object]:
             fk_agente,
             tipo_contacto="llamada",
         )
-        promises = count_gestiones(supabase, fk_agente, resultado="promesa")
-        refusals = count_gestiones(supabase, fk_agente, resultado="negativa")
-        messages = count_gestiones(supabase, fk_agente, resultado="recado")
+        promises = count_gestiones(
+            supabase,
+            fk_agente,
+            resultado="05.-Promesa de Pago",
+        )
+        refusals = count_gestiones(
+            supabase,
+            fk_agente,
+            resultado="20.-Negativa",
+        )
+        messages = count_gestiones(supabase, fk_agente, resultado="Mnje")
         payments = count_rows(
             supabase.table("pagos")
             .select("*", count="exact", head=True)
@@ -960,6 +1103,203 @@ def get_dashboard(fk_agente: int) -> dict[str, object]:
         "negativas_de_pago": refusals,
         "cuentas_con_recado": messages,
         "pagos_reportados": payments,
+    }
+
+
+@app.post("/api/gestiones/importar")
+async def import_gestiones(
+    fk_financiera: int = Form(..., ge=1),
+    file: UploadFile = File(...),
+) -> dict[str, object]:
+    filename = file.filename or ""
+    if not filename.lower().endswith((".xlsx", ".xlsm", ".xls")):
+        raise HTTPException(
+            status_code=415,
+            detail="Formato no admitido. Usa .XLSX, .XLSM o .XLS.",
+        )
+
+    contents = await file.read(25 * 1024 * 1024 + 1)
+    await file.close()
+    if len(contents) > 25 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="El archivo supera el límite de 25 MB.",
+        )
+
+    try:
+        parsed_file = parse_gestiones_file(contents, filename)
+    except ImportFormatError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("No se pudo interpretar el archivo de gestiones.")
+        raise HTTPException(
+            status_code=422,
+            detail="No se pudo leer el archivo de gestiones. Verifica que no esté dañado o protegido.",
+        ) from exc
+
+    supabase = get_supabase()
+    try:
+        financial_response = (
+            supabase.table("financieras")
+            .select("id_financiera,nombre_financiera")
+            .eq("id_financiera", fk_financiera)
+            .limit(1)
+            .execute()
+        )
+        if not financial_response.data:
+            raise HTTPException(
+                status_code=404,
+                detail="La financiera seleccionada no existe.",
+            )
+
+        accounts_by_identifier: dict[str, set[int]] = {}
+        page_size = 1000
+        for page_start in range(0, 100_000, page_size):
+            account_page = (
+                supabase.table("carteras")
+                .select("id_cartera,id_cuenta,numero_credito")
+                .eq("fk_financiera", fk_financiera)
+                .range(page_start, page_start + page_size - 1)
+                .execute()
+                .data
+                or []
+            )
+            for account in account_page:
+                account_id = account["id_cartera"]
+                for field in ("id_cuenta", "numero_credito"):
+                    identifier = normalize_identifier(account.get(field))
+                    if identifier:
+                        accounts_by_identifier.setdefault(identifier, set()).add(
+                            account_id,
+                        )
+            if len(account_page) < page_size:
+                break
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudieron consultar las cuentas de la financiera seleccionada.",
+        ) from exc
+
+    records: list[dict[str, object]] = []
+    skipped_without_account = 0
+    skipped_ambiguous = 0
+
+    for source_record in parsed_file["records"]:
+        identifier = str(source_record["numero_credito"])
+        account_ids = accounts_by_identifier.get(identifier, set())
+        if not account_ids:
+            skipped_without_account += 1
+            continue
+        if len(account_ids) != 1:
+            skipped_ambiguous += 1
+            continue
+
+        result = str(source_record["codigo_resultado"])
+        if result in {
+            "09.-Mnje con fam",
+            "10.- Mnje trabajo",
+            "11.-Mnje con ref",
+        }:
+            contact_status = "tercero"
+        elif result in {
+            "01.-Sin gestion",
+            "13.-No contesta",
+            "14.-Buzon",
+            "15.-No lo conoce",
+            "16.-Fuera de servicio",
+            "17.-No enlaza",
+        }:
+            contact_status = "sin_contacto"
+        else:
+            contact_status = "titular"
+
+        source_row = int(source_record["fila_origen"])
+        import_key = hashlib.sha256(
+            "\0".join(
+                (
+                    str(fk_financiera),
+                    str(source_row),
+                    identifier,
+                    str(source_record["fecha_gestion"]),
+                    result,
+                    str(source_record.get("comentario") or ""),
+                    str(source_record.get("telefono_contactado") or ""),
+                )
+            ).encode("utf-8")
+        ).hexdigest()
+        records.append({
+            "fk_cartera": next(iter(account_ids)),
+            "fk_agente": None,
+            "tipo_contacto": (
+                "sin_gestion" if result == "01.-Sin gestion" else "llamada"
+            ),
+            "estatus_contacto": contact_status,
+            "persona_contactada": None,
+            "telefono_contactado": normalize_identifier(
+                source_record.get("telefono_contactado"),
+            ),
+            "codigo_resultado": result,
+            "comentario": source_record.get("comentario"),
+            "fecha_gestion": source_record["fecha_gestion"],
+            "fecha_promesa": None,
+            "monto_promesa": None,
+            "import_key": import_key,
+        })
+
+    if not records:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No se encontró ningún crédito del archivo en la cartera seleccionada. "
+                "Carga primero la cartera y confirma que elegiste la financiera correcta."
+            ),
+        )
+
+    inserted = 0
+    processed = 0
+    for start in range(0, len(records), 250):
+        batch = records[start:start + 250]
+        try:
+            response = (
+                supabase.table("gestiones")
+                .upsert(
+                    batch,
+                    on_conflict="import_key",
+                    ignore_duplicates=True,
+                )
+                .select("id_gestion")
+                .execute()
+            )
+            inserted += len(response.data or [])
+            processed += len(batch)
+        except Exception as exc:
+            logger.exception(
+                "Gestiones import failed after %s records were processed",
+                processed,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"La carga se detuvo después de procesar {processed} filas. "
+                    f"Se importaron {inserted}; pueden haber quedado guardadas parcialmente. "
+                    "Confirma que aplicaste la migración 011_management_import.sql "
+                    "y vuelve a cargar el mismo archivo para omitir duplicados."
+                ),
+            ) from exc
+
+    return {
+        "mensaje": "La importación de gestiones terminó.",
+        "nombre_financiera": financial_response.data[0]["nombre_financiera"],
+        "registros_leidos": parsed_file["registros_leidos"],
+        "registros_importados": inserted,
+        "registros_duplicados": len(records) - inserted,
+        "omitidas_sin_resultado": parsed_file["omitidas_sin_resultado"],
+        "omitidas_sin_credito": parsed_file["omitidas_sin_credito"],
+        "omitidas_sin_fecha": parsed_file["omitidas_sin_fecha"],
+        "omitidas_sin_cuenta": skipped_without_account,
+        "omitidas_ambiguas": skipped_ambiguous,
     }
 
 
@@ -1068,8 +1408,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-
-
-
-

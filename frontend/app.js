@@ -13,15 +13,53 @@ if (pendingCreditNumber) {
   cleanUrl.searchParams.delete("credito");
   window.history.replaceState({}, "", cleanUrl);
 }
-const RESULT_LABELS = {
-  promesa: "Promesa de pago",
-  negativa: "Negativa de pago",
-  recado: "Se dejó recado",
-  pago_reportado: "Pago reportado",
-  sin_acuerdo: "Contacto sin acuerdo",
-  no_contesto: "No contestó",
-  numero_incorrecto: "Número incorrecto",
-};
+const CALL_RESULTS = [
+  "01.-Sin gestion",
+  "02.-Pago parcial",
+  "03.-Cuenta regularizada",
+  "04.-Convenio Liquidacion",
+  "05.-Promesa de Pago",
+  "06.-Convenio roto",
+  "07.-Promesa incumplida",
+  "08.-Seguimiento",
+  "09.-Mnje con fam",
+  "10.- Mnje trabajo",
+  "11.-Mnje con ref",
+  "12.-Liquidacion",
+  "13.-No contesta",
+  "14.-Buzon",
+  "15.-No lo conoce",
+  "16.-Fuera de servicio",
+  "17.-No enlaza",
+  "18.-Defuncion",
+  "19.-Cliente evasivo",
+  "20.-Negativa",
+  "21.-Aclaracion",
+  "22.-Retiro x financiera",
+];
+const RESULT_LABELS = Object.fromEntries(
+  CALL_RESULTS.map((result) => [result, result]),
+);
+const NO_CONTACT_RESULTS = new Set([
+  "01.-Sin gestion",
+  "13.-No contesta",
+  "14.-Buzon",
+  "15.-No lo conoce",
+  "16.-Fuera de servicio",
+  "17.-No enlaza",
+]);
+const THIRD_PARTY_RESULTS = new Set([
+  "09.-Mnje con fam",
+  "10.- Mnje trabajo",
+  "11.-Mnje con ref",
+]);
+const SUCCESSFUL_RESULTS = new Set([
+  "02.-Pago parcial",
+  "03.-Cuenta regularizada",
+  "04.-Convenio Liquidacion",
+  "05.-Promesa de Pago",
+  "12.-Liquidacion",
+]);
 
 const uploadForm = document.getElementById("upload-form");
 const financialSelect = document.getElementById("financial-select");
@@ -29,6 +67,18 @@ const fileInput = document.getElementById("archivo-cartera");
 const fileName = document.getElementById("file-name");
 const importButton = document.getElementById("import-button");
 const importStatus = document.getElementById("import-status");
+const managementUploadForm = document.getElementById("management-upload-form");
+const managementFinancialSelect = document.getElementById(
+  "management-financial-select",
+);
+const managementFileInput = document.getElementById("archivo-gestiones");
+const managementFileName = document.getElementById("management-file-name");
+const managementImportButton = document.getElementById(
+  "management-import-button",
+);
+const managementImportStatus = document.getElementById(
+  "management-import-status",
+);
 
 const portfolioButton = document.getElementById("refresh-portfolio");
 const portfolioList = document.getElementById("portfolio-list");
@@ -45,6 +95,7 @@ const views = {
   home: document.getElementById("view-home"),
   portfolio: document.getElementById("view-portfolio"),
   management: document.getElementById("view-gestion"),
+  load: document.getElementById("view-load"),
   upload: document.getElementById("view-upload"),
   reports: document.getElementById("view-reports"),
 };
@@ -52,6 +103,7 @@ const viewLabels = {
   home: "Inicio",
   portfolio: "Mi cartera",
   management: "Registrar gestión",
+  load: "Cargar gestiones",
   upload: "Cargar cartera",
   reports: "Reportes",
 };
@@ -94,14 +146,17 @@ async function loadFinancialOptions() {
   }
 
   const financials = await getJson(`${API_URL}/api/financieras`);
-  financialSelect.replaceChildren(
-    new Option("Selecciona una financiera", ""),
-  );
+  const financialSelects = [financialSelect, managementFinancialSelect];
+  for (const select of financialSelects) {
+    select.replaceChildren(new Option("Selecciona una financiera", ""));
+  }
 
   for (const financial of financials) {
-    financialSelect.add(
-      new Option(financial.nombre_financiera, financial.id_financiera),
-    );
+    for (const select of financialSelects) {
+      select.add(
+        new Option(financial.nombre_financiera, financial.id_financiera),
+      );
+    }
   }
 }
 
@@ -641,14 +696,11 @@ async function loadManagementHistory() {
 
     for (const management of result.items) {
       const item = document.createElement("article");
-      const outcomeTone = ["no_contesto", "numero_incorrecto"].includes(
-        management.codigo_resultado,
-      )
+      const outcomeTone = NO_CONTACT_RESULTS.has(management.codigo_resultado)
         ? "unanswered"
-        : management.codigo_resultado === "recado"
-          && management.estatus_contacto === "tercero"
+        : THIRD_PARTY_RESULTS.has(management.codigo_resultado)
           ? "successful"
-          : ["promesa", "pago_reportado"].includes(management.codigo_resultado)
+          : SUCCESSFUL_RESULTS.has(management.codigo_resultado)
             ? "successful"
             : "contacted";
       item.className = `history-item outcome-${outcomeTone}`;
@@ -737,10 +789,71 @@ async function loadDashboard() {
       `${progress}%`;
     document.getElementById("portfolio-progress-bar").style.width =
       `${progress}%`;
-    await loadTodayManagements();
+    await Promise.all([
+      loadTodayManagements(),
+      loadTodayPromises(),
+    ]);
     status.textContent = "Métricas actualizadas desde Supabase";
   } catch (error) {
     status.textContent = `No se pudieron actualizar las métricas: ${error.message}`;
+  }
+}
+
+async function loadTodayPromises() {
+  const status = document.getElementById("promises-due-status");
+  const list = document.getElementById("promises-due-list");
+  const count = document.getElementById("promises-due-count");
+  status.textContent = "Cargando promesas…";
+  list.replaceChildren();
+
+  try {
+    const result = await getJson(`${API_URL}/api/gestiones/promesas-hoy`);
+    const promises = result.items || [];
+    count.textContent = `${promises.length} ${promises.length === 1 ? "cuenta" : "cuentas"}`;
+
+    if (!promises.length) {
+      status.textContent = "No hay cuentas con promesa de pago para hoy.";
+      return;
+    }
+
+    status.textContent = "Cuentas con pago comprometido para hoy";
+    for (const promise of promises) {
+      const account = promise.cuenta;
+      const item = document.createElement("article");
+      item.className = "promise-due-item";
+
+      const heading = document.createElement("div");
+      heading.className = "promise-due-heading";
+      const customer = document.createElement("strong");
+      customer.textContent = account.cliente || "Cliente sin nombre";
+      const amount = document.createElement("span");
+      amount.className = "promise-due-amount";
+      amount.textContent = displayMoney(promise.monto_promesa);
+      heading.append(customer, amount);
+
+      const detail = document.createElement("p");
+      const creditNumber = account.numero_credito || account.id_cuenta;
+      detail.textContent = [
+        creditNumber ? `Crédito ${creditNumber}` : "",
+        account.financiera?.nombre_financiera || "",
+      ].filter(Boolean).join(" · ") || "Cuenta sin identificador";
+
+      const selectButton = document.createElement("button");
+      selectButton.className = "button button-secondary promise-select-button";
+      selectButton.type = "button";
+      selectButton.textContent = "Seleccionar cuenta";
+      selectButton.setAttribute(
+        "aria-label",
+        `Seleccionar cuenta de ${account.cliente || "cliente sin nombre"}`,
+      );
+      selectButton.addEventListener("click", () => selectAccount(account));
+
+      item.append(heading, detail, selectButton);
+      list.append(item);
+    }
+  } catch (error) {
+    count.textContent = "—";
+    status.textContent = `No se pudieron cargar las promesas: ${error.message}`;
   }
 }
 
@@ -969,7 +1082,6 @@ async function logout() {
 }
 
 document.getElementById("logout-button").addEventListener("click", logout);
-document.getElementById("top-logout-button").addEventListener("click", logout);
 
 document.getElementById("report-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1026,10 +1138,8 @@ document.getElementById("change-account").addEventListener("click", () => {
 });
 
 callResultSelect.addEventListener("change", () => {
-  const isPromise = callResultSelect.value === "promesa";
-  const noContact = ["no_contesto", "numero_incorrecto"].includes(
-    callResultSelect.value,
-  );
+  const isPromise = callResultSelect.value === "05.-Promesa de Pago";
+  const noContact = NO_CONTACT_RESULTS.has(callResultSelect.value);
   promiseFields.hidden = !isPromise;
   document.getElementById("promise-date").required = isPromise;
   document.getElementById("promise-amount").required = isPromise;
@@ -1110,7 +1220,7 @@ managementForm.addEventListener("submit", async (event) => {
   }
 
   const resultCode = callResultSelect.value;
-  const isPromise = resultCode === "promesa";
+  const isPromise = resultCode === "05.-Promesa de Pago";
   const status = document.getElementById("management-submit-status");
   const saveButton = document.getElementById("save-management");
   const payload = {
@@ -1159,6 +1269,56 @@ managementForm.addEventListener("submit", async (event) => {
   }
 });
 
+managementFileInput.addEventListener("change", () => {
+  managementFileName.textContent = managementFileInput.files[0]?.name
+    ?? "Ningún archivo seleccionado";
+});
+
+managementUploadForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!managementUploadForm.reportValidity()) {
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("fk_financiera", managementFinancialSelect.value);
+  formData.append("file", managementFileInput.files[0]);
+  managementImportButton.disabled = true;
+  managementImportButton.textContent = "Importando…";
+  managementImportStatus.textContent =
+    "Validando el archivo y relacionando los créditos…";
+  managementImportStatus.classList.remove("upload-error", "upload-success");
+
+  try {
+    const result = await getJson(`${API_URL}/api/gestiones/importar`, {
+      method: "POST",
+      body: formData,
+    });
+    const skipped = result.omitidas_sin_resultado
+      + result.omitidas_sin_credito
+      + result.omitidas_sin_fecha
+      + result.omitidas_sin_cuenta
+      + result.omitidas_ambiguas;
+    managementImportStatus.textContent =
+      `Importadas ${result.registros_importados} gestiones; `
+      + `${result.registros_duplicados} duplicadas omitidas; `
+      + `${skipped} filas omitidas por datos faltantes o cuenta no encontrada.`;
+    managementImportStatus.classList.add("upload-success");
+    managementUploadForm.reset();
+    managementFileName.textContent = "Ningún archivo seleccionado";
+    await loadDashboard();
+    if (!portfolioList.hidden || portfolioLoaded) {
+      await loadPortfolio();
+    }
+  } catch (error) {
+    managementImportStatus.textContent = error.message;
+    managementImportStatus.classList.add("upload-error");
+  } finally {
+    managementImportButton.disabled = false;
+    managementImportButton.textContent = "Importar gestiones";
+  }
+});
+
 portfolioLoadMoreButton.addEventListener("click", () => {
   loadPortfolio({ append: true });
 });
@@ -1180,4 +1340,3 @@ loadFinancialOptions().catch((error) => {
   importStatus.textContent = `${error.message} Confirma que FastAPI esté iniciado.`;
   importStatus.classList.add("upload-error");
 });
-

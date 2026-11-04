@@ -32,12 +32,11 @@
               GESTIÓN DE CARTERA
             </span>
             <h1>
-              Tu cartera,
+              MB CONSULTORIA
               <br>
-              siempre en orden.
             </h1>
             <p>
-              Una forma más clara de dar seguimiento, organizar gestiones y recuperar.
+              cobranza y legal
             </p>
           </div>
           <div class="brand-foot">
@@ -50,7 +49,7 @@
           <form id="login-form" class="login-card">
             <img
               class="login-logo"
-              src="mbconsultoria.jpeg"
+              src="/adjuntos/mbconsultoria.jpeg"
               alt="MB Consultoria"
             >
             <div class="mobile-brand brand">
@@ -103,6 +102,28 @@
               </b>
             </span>
           </a>
+          <header class="topbar">
+            <div class="breadcrumb">
+              MB CONSULTORIA
+              <span>
+                /
+              </span>
+              <b id="breadcrumb-view">
+                Inicio
+              </b>
+            </div>
+            <div class="top-actions">
+              <span class="session-duration" aria-live="off">
+                Conectado <b id="session-duration">00:00:00</b>
+              </span>
+              <span class="today">
+                Hoy
+              </span>
+              <button id="top-register-management" class="button button-primary top-register-management" type="button">
+                Registrar llamada
+              </button>
+            </div>
+          </header>
           <span class="nav-caption">
             MENÚ PRINCIPAL
           </span>
@@ -124,6 +145,10 @@
                 ☏
               </span>
               Registrar gestión
+            </button>
+            <button id="nav-load" class="nav-link" type="button" data-view="load">
+              <span class="nav-icon">↻</span>
+              Cargar gestiones
             </button>
             <button id="nav-upload" class="nav-link" type="button" data-view="upload">
               <span class="nav-icon">↑</span>
@@ -166,37 +191,6 @@
           </div>
         </aside>
         <div class="main-area">
-          <header class="topbar">
-            <div class="breadcrumb">
-              MB CONSULTORIA
-              <span>
-                /
-              </span>
-              <b id="breadcrumb-view">
-                Inicio
-              </b>
-            </div>
-            <div class="top-actions">
-              <span class="session-duration" aria-live="off">
-                Conectado <b id="session-duration">00:00:00</b>
-              </span>
-              <span class="today">
-                Hoy
-              </span>
-              <button id="top-register-management" class="button button-primary top-register-management" type="button">
-                Registrar llamada
-              </button>
-              <button id="top-logout-button" class="button button-secondary top-logout-button" type="button">Salir</button>
-              <button class="icon-button" aria-label="Notificaciones">
-                ♧
-                <i>
-                </i>
-              </button>
-              <span class="avatar avatar-small">
-                AP
-              </span>
-            </div>
-          </header>
           <div id="view-home" class="content crm-view">
             <section class="welcome-row">
               <div>
@@ -336,17 +330,30 @@
                 </div>
               </article>
             </section>
-            <section class="today-management-card" aria-labelledby="today-management-title">
-              <div class="today-management-heading">
-                <div>
-                  <span class="eyebrow">ACTIVIDAD DEL DÍA</span>
-                  <h2 id="today-management-title">Gestiones de hoy</h2>
+            <div class="dashboard-lists-grid">
+              <section class="today-management-card promise-due-card" aria-labelledby="promises-due-title">
+                <div class="today-management-heading">
+                  <div>
+                    <span class="eyebrow">PAGOS PROGRAMADOS</span>
+                    <h2 id="promises-due-title">Promesas para hoy</h2>
+                  </div>
+                  <span id="promises-due-count" class="today-management-count">0 cuentas</span>
                 </div>
-                <time id="today-management-date"></time>
-              </div>
-              <p id="today-management-status" class="management-status" role="status" aria-live="polite"></p>
-              <div id="today-management-list" class="today-management-list"></div>
-            </section>
+                <p id="promises-due-status" class="management-status" role="status" aria-live="polite"></p>
+                <div id="promises-due-list" class="promises-due-list"></div>
+              </section>
+              <section class="today-management-card" aria-labelledby="today-management-title">
+                <div class="today-management-heading">
+                  <div>
+                    <span class="eyebrow">ACTIVIDAD DEL DÍA</span>
+                    <h2 id="today-management-title">Gestiones de hoy</h2>
+                  </div>
+                  <time id="today-management-date"></time>
+                </div>
+                <p id="today-management-status" class="management-status" role="status" aria-live="polite"></p>
+                <div id="today-management-list" class="today-management-list"></div>
+              </section>
+            </div>
             <footer class="page-footer">
               © 2026 MB CONSULTORIA
               <span>CRM de cobranza</span>
@@ -403,13 +410,28 @@
                   Resultado
                   <select id="report-result">
                     <option value="">Todos</option>
-                    <option value="promesa">Promesa</option>
-                    <option value="negativa">Negativa</option>
-                    <option value="recado">Recado</option>
-                    <option value="pago_reportado">Pago reportado</option>
-                    <option value="sin_acuerdo">Sin acuerdo</option>
-                    <option value="no_contesto">No contestó</option>
-                    <option value="numero_incorrecto">Número incorrecto</option>
+                    <option value="01.-Sin gestion">01.-Sin gestion</option>
+                    <option value="02.-Pago parcial">02.-Pago parcial</option>
+                    <option value="03.-Cuenta regularizada">03.-Cuenta regularizada</option>
+                    <option value="04.-Convenio Liquidacion">04.-Convenio Liquidacion</option>
+                    <option value="05.-Promesa de Pago">05.-Promesa de Pago</option>
+                    <option value="06.-Convenio roto">06.-Convenio roto</option>
+                    <option value="07.-Promesa incumplida">07.-Promesa incumplida</option>
+                    <option value="08.-Seguimiento">08.-Seguimiento</option>
+                    <option value="09.-Mnje con fam">09.-Mnje con fam</option>
+                    <option value="10.- Mnje trabajo">10.- Mnje trabajo</option>
+                    <option value="11.-Mnje con ref">11.-Mnje con ref</option>
+                    <option value="12.-Liquidacion">12.-Liquidacion</option>
+                    <option value="13.-No contesta">13.-No contesta</option>
+                    <option value="14.-Buzon">14.-Buzon</option>
+                    <option value="15.-No lo conoce">15.-No lo conoce</option>
+                    <option value="16.-Fuera de servicio">16.-Fuera de servicio</option>
+                    <option value="17.-No enlaza">17.-No enlaza</option>
+                    <option value="18.-Defuncion">18.-Defuncion</option>
+                    <option value="19.-Cliente evasivo">19.-Cliente evasivo</option>
+                    <option value="20.-Negativa">20.-Negativa</option>
+                    <option value="21.-Aclaracion">21.-Aclaracion</option>
+                    <option value="22.-Retiro x financiera">22.-Retiro x financiera</option>
                   </select>
                 </label>
                 <div class="report-actions">
@@ -419,6 +441,39 @@
                   </button>
                 </div>
               </form>
+            </section>
+          </section>
+          <section id="view-load" class="content crm-view" hidden>
+            <section class="upload-card" aria-labelledby="management-upload-title">
+              <div class="upload-heading">
+                <span class="upload-icon" aria-hidden="true">↻</span>
+                <div>
+                  <span class="eyebrow">CARGA HISTÓRICA</span>
+                  <h1 id="management-upload-title">Cargar gestiones</h1>
+                  <p class="muted">Importa el historial de la pestaña «Gestiones» de los libros manuales de FINORE o BORDER CREDIT. Los resultados se normalizan al catálogo del CRM y las filas sin resultado se omiten.</p>
+                </div>
+              </div>
+              <form id="management-upload-form" class="upload-form">
+                <label class="upload-field" for="management-financial-select">
+                  Financiera
+                  <select id="management-financial-select" name="fk_financiera" required>
+                    <option value="">Cargando financieras...</option>
+                  </select>
+                </label>
+                <div class="file-field">
+                  <label class="file-picker" for="archivo-gestiones">
+                    <span aria-hidden="true">＋</span>
+                    <span>Seleccionar archivo de gestiones</span>
+                  </label>
+                  <input id="archivo-gestiones" class="file-input" name="file" type="file" accept=".xlsx,.xls,.xlsm" required>
+                  <span id="management-file-name" class="file-name">Ningún archivo seleccionado</span>
+                  <span class="file-types">Excel .XLSX, .XLS o .XLSM</span>
+                </div>
+                <button id="management-import-button" class="button button-primary" type="submit">Importar gestiones</button>
+              </form>
+              <p id="management-import-status" class="upload-note" role="status" aria-live="polite">
+                Se conserva el historial y se relacionan los créditos con la financiera seleccionada.
+              </p>
             </section>
           </section>
           <div id="view-portfolio" class="content crm-view" hidden>
@@ -611,13 +666,28 @@
                   Resultado de la llamada
                   <select id="call-result" name="codigo_resultado" required>
                     <option value="">Selecciona el resultado</option>
-                    <option value="promesa">Promesa de pago</option>
-                    <option value="negativa">Negativa de pago</option>
-                    <option value="recado">Se dejó recado</option>
-                    <option value="pago_reportado">Pago reportado</option>
-                    <option value="sin_acuerdo">Contacto sin acuerdo</option>
-                    <option value="no_contesto">No contestó</option>
-                    <option value="numero_incorrecto">Número incorrecto</option>
+                    <option value="01.-Sin gestion">01.-Sin gestion</option>
+                    <option value="02.-Pago parcial">02.-Pago parcial</option>
+                    <option value="03.-Cuenta regularizada">03.-Cuenta regularizada</option>
+                    <option value="04.-Convenio Liquidacion">04.-Convenio Liquidacion</option>
+                    <option value="05.-Promesa de Pago">05.-Promesa de Pago</option>
+                    <option value="06.-Convenio roto">06.-Convenio roto</option>
+                    <option value="07.-Promesa incumplida">07.-Promesa incumplida</option>
+                    <option value="08.-Seguimiento">08.-Seguimiento</option>
+                    <option value="09.-Mnje con fam">09.-Mnje con fam</option>
+                    <option value="10.- Mnje trabajo">10.- Mnje trabajo</option>
+                    <option value="11.-Mnje con ref">11.-Mnje con ref</option>
+                    <option value="12.-Liquidacion">12.-Liquidacion</option>
+                    <option value="13.-No contesta">13.-No contesta</option>
+                    <option value="14.-Buzon">14.-Buzon</option>
+                    <option value="15.-No lo conoce">15.-No lo conoce</option>
+                    <option value="16.-Fuera de servicio">16.-Fuera de servicio</option>
+                    <option value="17.-No enlaza">17.-No enlaza</option>
+                    <option value="18.-Defuncion">18.-Defuncion</option>
+                    <option value="19.-Cliente evasivo">19.-Cliente evasivo</option>
+                    <option value="20.-Negativa">20.-Negativa</option>
+                    <option value="21.-Aclaracion">21.-Aclaracion</option>
+                    <option value="22.-Retiro x financiera">22.-Retiro x financiera</option>
                   </select>
                 </label>
                 <div id="promise-fields" class="promise-fields" hidden>
@@ -647,13 +717,28 @@
                     Filtrar por resultado
                     <select id="management-result-filter">
                       <option value="">Todos</option>
-                      <option value="promesa">Promesa</option>
-                      <option value="negativa">Negativa</option>
-                      <option value="recado">Recado</option>
-                      <option value="pago_reportado">Pago reportado</option>
-                      <option value="sin_acuerdo">Sin acuerdo</option>
-                      <option value="no_contesto">No contestó</option>
-                      <option value="numero_incorrecto">Número incorrecto</option>
+                      <option value="01.-Sin gestion">01.-Sin gestion</option>
+                      <option value="02.-Pago parcial">02.-Pago parcial</option>
+                      <option value="03.-Cuenta regularizada">03.-Cuenta regularizada</option>
+                      <option value="04.-Convenio Liquidacion">04.-Convenio Liquidacion</option>
+                      <option value="05.-Promesa de Pago">05.-Promesa de Pago</option>
+                      <option value="06.-Convenio roto">06.-Convenio roto</option>
+                      <option value="07.-Promesa incumplida">07.-Promesa incumplida</option>
+                      <option value="08.-Seguimiento">08.-Seguimiento</option>
+                      <option value="09.-Mnje con fam">09.-Mnje con fam</option>
+                      <option value="10.- Mnje trabajo">10.- Mnje trabajo</option>
+                      <option value="11.-Mnje con ref">11.-Mnje con ref</option>
+                      <option value="12.-Liquidacion">12.-Liquidacion</option>
+                      <option value="13.-No contesta">13.-No contesta</option>
+                      <option value="14.-Buzon">14.-Buzon</option>
+                      <option value="15.-No lo conoce">15.-No lo conoce</option>
+                      <option value="16.-Fuera de servicio">16.-Fuera de servicio</option>
+                      <option value="17.-No enlaza">17.-No enlaza</option>
+                      <option value="18.-Defuncion">18.-Defuncion</option>
+                      <option value="19.-Cliente evasivo">19.-Cliente evasivo</option>
+                      <option value="20.-Negativa">20.-Negativa</option>
+                      <option value="21.-Aclaracion">21.-Aclaracion</option>
+                      <option value="22.-Retiro x financiera">22.-Retiro x financiera</option>
                     </select>
                   </label>
                 </div>
@@ -674,6 +759,3 @@
     <script src="app.js" defer></script>
 </body>
 </html>
-
-
-

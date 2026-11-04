@@ -260,6 +260,13 @@ def normalize_text(value: object) -> str | None:
     return text
 
 
+def normalize_identifier(value: object) -> str | None:
+    text = normalize_text(value)
+    if text is None:
+        return None
+    return re.sub(r"\s+", "", text)
+
+
 def normalize_decimal(value: object, row_number: int, column_name: str) -> str | None:
     value = excel_cell_to_text(value)
     if value is None:
@@ -408,6 +415,8 @@ def parse_cartera_file(contents: bytes, filename: str) -> list[dict[str, object]
                     record[name] = normalize_decimal(value, row_index + 1, name)
                 elif name in DATE_COLUMNS:
                     record[name] = normalize_date(value, row_index + 1, name)
+                elif name in {"id_cuenta", "numero_credito"}:
+                    record[name] = normalize_identifier(value)
                 else:
                     record[name] = normalize_text(value)
             except Exception:
