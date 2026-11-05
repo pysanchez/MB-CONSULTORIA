@@ -1,1 +1,9 @@
--r backend/requirements.txt
+fastapi
+uvicorn
+supabase
+python-dotenv
+python-multipart
+openpyxl
+xlrd
+tzdata
+pandas

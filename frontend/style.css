@@ -1799,9 +1799,88 @@ textarea,
   object-position: center;
 }
 
+.sidebar-heading {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #DEDEDE;
+  border-radius: 7px;
+  color: #444444;
+  background: #FFFFFF;
+  font: 600 20px "DM Sans", sans-serif;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+  background: #F3F3F3;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #777777;
+  outline-offset: 2px;
+}
+
 .workspace {
   grid-template-columns: minmax(210px, 245px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace.sidebar-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.sidebar-collapsed .sidebar {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.sidebar-collapsed .sidebar-heading {
+  flex-direction: column-reverse;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sidebar-collapsed .sidebar-brand .brand-name,
+.sidebar-collapsed .nav-caption,
+.sidebar-collapsed .sidebar-bottom {
+  display: none;
+}
+
+.sidebar-collapsed .nav-link {
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  font-size: 0;
+}
+
+.sidebar-collapsed .nav-icon {
+  flex: none;
+}
+
+.sidebar-collapsed .sidebar-toggle {
+  align-self: center;
+}
+
+.account-detail-group h3 {
+  padding: 0;
+  border: 0;
+  color: #3F3F3F;
+  background: transparent;
 }
 
 .sidebar {
@@ -2032,6 +2111,29 @@ textarea,
 
   .dashboard-lists-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace.sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar-collapsed .sidebar {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 9px 10px 0;
+  }
+
+  .sidebar-collapsed .sidebar-heading {
+    flex-direction: row;
+  }
+
+  .sidebar-collapsed .sidebar-brand {
+    justify-content: flex-start;
+  }
+
+  .sidebar-collapsed .sidebar-menu,
+  .sidebar-collapsed .nav-menu {
+    display: none;
   }
 }
 

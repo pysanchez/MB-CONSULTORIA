@@ -91,17 +91,29 @@
       </section>
       <section id="inicio" class="workspace" aria-label="Vista previa del CRM" hidden>
         <aside class="sidebar">
-          <a class="brand sidebar-brand" href="#inicio">
-            <span class="brand-mark">
-              MB
-            </span>
-            <span class="brand-name">
-              MB
-              <b>
-                CONSULTORIA
-              </b>
-            </span>
-          </a>
+          <div class="sidebar-heading">
+            <a class="brand sidebar-brand" href="#inicio">
+              <span class="brand-mark">
+                MB
+              </span>
+              <span class="brand-name">
+                MB
+                <b>
+                  CONSULTORIA
+                </b>
+              </span>
+            </a>
+            <button
+              id="toggle-sidebar"
+              class="sidebar-toggle"
+              type="button"
+              aria-label="Contraer menú lateral"
+              aria-controls="sidebar-nav"
+              aria-expanded="true"
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+          </div>
           <header class="topbar">
             <div class="breadcrumb">
               MB CONSULTORIA
@@ -127,7 +139,7 @@
           <span class="nav-caption">
             MENÚ PRINCIPAL
           </span>
-          <nav class="nav-menu" aria-label="Navegación principal">
+          <nav id="sidebar-nav" class="nav-menu" aria-label="Navegación principal">
             <button id="nav-home" class="nav-link active" type="button" data-view="home">
               <span class="nav-icon">
                 ⌂
@@ -657,6 +669,7 @@
                 <label class="management-field" for="contact-status">
                   ¿Con quién se tuvo contacto?
                   <select id="contact-status" name="estatus_contacto" required>
+                    <option value="">Selecciona el tipo de contacto</option>
                     <option value="titular">Titular</option>
                     <option value="tercero">Familiar o tercero</option>
                     <option value="sin_contacto">Sin contacto</option>

@@ -120,11 +120,23 @@ const managementHistoryList = document.getElementById("management-history-list")
 const latestManagementSummary = document.getElementById("latest-management-summary");
 const personContactedSelect = document.getElementById("person-contacted");
 const referenceForm = document.getElementById("reference-form");
+const sidebarToggle = document.getElementById("toggle-sidebar");
 
 let portfolioOffset = 0;
 let portfolioLoaded = false;
 let selectedAccount = null;
 let sessionStartedAt = null;
+const sidebarCollapsed = localStorage.getItem("crm-sidebar-collapsed") === "true";
+document.querySelectorAll(".nav-link").forEach((link) => {
+  link.title = link.textContent.trim();
+});
+workspace.classList.toggle("sidebar-collapsed", sidebarCollapsed);
+sidebarToggle.setAttribute("aria-expanded", String(!sidebarCollapsed));
+sidebarToggle.setAttribute(
+  "aria-label",
+  sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral",
+);
+sidebarToggle.querySelector("span").textContent = sidebarCollapsed ? "›" : "‹";
 
 async function getJson(url, options = {}) {
   const response = await fetch(url, {
@@ -547,7 +559,27 @@ async function searchAccountsForManagement(event) {
     const params = new URLSearchParams({ buscar: term, limite: "50", desde: "0" });
     const result = await getJson(`${API_URL}/api/carteras?${params}`);
 
-    for (const account of result.items) {
+    const normalizeCredit = (value) => String(value || "")
+      .replace(/\s+/g, "")
+      .toLocaleLowerCase();
+    const exactCreditMatches = result.items.filter((account) => {
+      const searchedCredit = normalizeCredit(term);
+      return searchedCredit && [
+        account.numero_credito,
+        account.id_cuenta,
+      ].some((credit) => normalizeCredit(credit) === searchedCredit);
+    });
+
+    if (exactCreditMatches.length === 1) {
+      managementSearchStatus.textContent = "Crédito exacto encontrado. Cuenta abierta automáticamente.";
+      selectAccount(exactCreditMatches[0]);
+      return;
+    }
+
+    const accountsToShow = exactCreditMatches.length > 1
+      ? exactCreditMatches
+      : result.items;
+    for (const account of accountsToShow) {
       const option = document.createElement("button");
       option.className = "account-choice";
       option.type = "button";
@@ -561,8 +593,10 @@ async function searchAccountsForManagement(event) {
       managementAccountResults.append(option);
     }
 
-    managementSearchStatus.textContent = result.items.length
-      ? `Selecciona una cuenta. Se encontraron ${result.items.length}${result.hay_mas ? " o más" : ""}.`
+    managementSearchStatus.textContent = accountsToShow.length
+      ? exactCreditMatches.length > 1
+        ? `El crédito exacto aparece en ${exactCreditMatches.length} cuentas. Selecciona la financiera correcta.`
+        : `Selecciona una cuenta. Se encontraron ${result.items.length}${result.hay_mas ? " o más" : ""}.`
       : "No se encontraron cuentas con esos datos.";
   } catch (error) {
     managementSearchStatus.textContent = error.message;
@@ -578,10 +612,6 @@ function selectAccount(account) {
     `Crédito ${account.numero_credito || "—"} · ${account.financiera?.nombre_financiera || "Financiera sin dato"} · Tel. ${account.celular || account.casa || "Sin teléfono"}`;
   renderAccountDetails(account);
   selectedAccountPanel.hidden = false;
-  selectedAccountPanel.insertBefore(
-    selectedAccountPanel.querySelector(".management-history"),
-    document.getElementById("account-details"),
-  );
 
   managementForm.reset();
   referenceForm.reset();
@@ -632,6 +662,7 @@ function getContactPhone(contactValue) {
 
   const phones = {
     titular: selectedAccount.celular || selectedAccount.casa,
+    sin_contacto: selectedAccount.celular || selectedAccount.casa,
     referencia1: selectedAccount.ref1_tel || selectedAccount.referencia_1,
     referencia2: selectedAccount.ref2_tel || selectedAccount.referencia_2,
     referencia3: selectedAccount.ref3_tel,
@@ -1082,6 +1113,16 @@ async function logout() {
 }
 
 document.getElementById("logout-button").addEventListener("click", logout);
+sidebarToggle.addEventListener("click", () => {
+  const isCollapsed = workspace.classList.toggle("sidebar-collapsed");
+  localStorage.setItem("crm-sidebar-collapsed", String(isCollapsed));
+  sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  sidebarToggle.setAttribute(
+    "aria-label",
+    isCollapsed ? "Expandir menú lateral" : "Contraer menú lateral",
+  );
+  sidebarToggle.querySelector("span").textContent = isCollapsed ? "›" : "‹";
+});
 
 document.getElementById("report-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1139,27 +1180,9 @@ document.getElementById("change-account").addEventListener("click", () => {
 
 callResultSelect.addEventListener("change", () => {
   const isPromise = callResultSelect.value === "05.-Promesa de Pago";
-  const noContact = NO_CONTACT_RESULTS.has(callResultSelect.value);
   promiseFields.hidden = !isPromise;
   document.getElementById("promise-date").required = isPromise;
   document.getElementById("promise-amount").required = isPromise;
-  if (noContact) {
-    document.getElementById("contact-status").value = "sin_contacto";
-    personContactedSelect.value = "sin_contacto";
-  } else if (document.getElementById("contact-status").value === "sin_contacto") {
-    document.getElementById("contact-status").value = "titular";
-    personContactedSelect.value = "titular";
-  }
-});
-
-personContactedSelect.addEventListener("change", () => {
-  if (personContactedSelect.value === "sin_contacto") {
-    document.getElementById("contact-status").value = "sin_contacto";
-  } else if (personContactedSelect.value.startsWith("referencia")) {
-    document.getElementById("contact-status").value = "tercero";
-  } else if (personContactedSelect.value) {
-    document.getElementById("contact-status").value = "titular";
-  }
 });
 
 document.getElementById("management-result-filter").addEventListener(
