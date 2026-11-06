@@ -609,7 +609,7 @@ function selectAccount(account) {
   document.getElementById("selected-account-title").textContent =
     account.cliente || "Cliente sin nombre";
   document.getElementById("selected-account-details").textContent =
-    `Crédito ${account.numero_credito || "—"} · ${account.financiera?.nombre_financiera || "Financiera sin dato"} · Tel. ${account.celular || account.casa || "Sin teléfono"}`;
+    `Crédito ${account.numero_credito || account.id_cuenta || "—"} · ${account.financiera?.nombre_financiera || "Financiera sin dato"} · Tel. ${account.celular || account.casa || "Sin teléfono"}`;
   renderAccountDetails(account);
   selectedAccountPanel.hidden = false;
 

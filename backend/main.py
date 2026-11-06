@@ -991,7 +991,7 @@ def export_gestiones_xlsx(
         for start in range(0, len(account_ids), 500):
             account_batch = (
                 supabase.table("carteras")
-                .select("id_cartera,cliente,numero_credito,fk_financiera")
+                .select("id_cartera,cliente,id_cuenta,numero_credito,fk_financiera")
                 .in_("id_cartera", account_ids[start:start + 500])
                 .execute()
                 .data
@@ -1025,6 +1025,7 @@ def export_gestiones_xlsx(
             "Fecha y hora": management.get("fecha_gestion"),
             "Cliente": account.get("cliente"),
             "Número de crédito": account.get("numero_credito"),
+            "IdCuenta": account.get("id_cuenta"),
             "Financiera": financials_by_id.get(account.get("fk_financiera")),
             "Persona contactada": management.get("persona_contactada"),
             "Teléfono contactado": management.get("telefono_contactado"),
