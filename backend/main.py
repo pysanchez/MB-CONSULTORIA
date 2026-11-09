@@ -335,7 +335,7 @@ def list_financieras() -> list[dict[str, object]]:
             .order("nombre_financiera")
             .execute()
         )
-        allowed_financials = {"BORDER CREDIT", "FINORE"}
+        allowed_financials = {"BORDER CREDIT", "FINORE", "GO CREDIT"}
         return [
             financial
             for financial in response.data or []

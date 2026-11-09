@@ -14,7 +14,11 @@ logger = logging.getLogger(__name__)
 
 FIELD_HEADERS = {
     "id_cuenta": ("clave cliente", "clave", "id cuenta", "idcuenta"),
-    "numero_credito": ("no de credito", "numero de credito", "no credito"),
+    "numero_credito": (
+        "no de credito",
+        "numero de credito",
+        "no credito",
+    ),
     "estatus_promesa_act": ("estatus promesa act", "estatus promesa actual", "esta pp actual"),
     "estatus_promesa_ant": ("estatus promesa ant", "estatus promesa anterior", "est pp ant"),
     "asignacion": ("gestionada", "asignacion"), "agente_texto": ("agente",),
@@ -26,6 +30,28 @@ FIELD_HEADERS = {
     "frecuencia": ("frecuencia",), "frecuencia_detalle": ("frecuencia",),
     "comentario": ("comentario",),
     "excel_pagos": ("pagos",), "rec_mb": ("rec mb",),
+    "referencia_pago": ("referencia pago",),
+    "estatus_gestion": (),
+    "estatus_domi": ("estatus domi",),
+    "dependencia": ("un dependencia",),
+    "pago_cuota": ("pago cuota",),
+    "monto_vencido": ("vencido",),
+    "oferta_liquidacion": ("oferta liquidacion",),
+    "curp": ("curp",),
+    "entre_calles": ("entre calles",),
+    "plaza": ("plaza",),
+    "ejecutivo": ("ejecutivo",),
+    "vendedor": ("vendedor",),
+    "supervisor_vendedor": ("supervisor vendedor",),
+    "banco": ("banco",),
+    "rango_pagado": ("rango pagado",),
+    "cuotas_pagadas_rango": ("cuotas pag rango",),
+    "rango_pagado_mes_anterior": ("rango pagado mes anterior",),
+    "rango_pagado_30_dias": ("rango pagado 30 dias",),
+    "rango_pagado_15_dias": ("rango pagado 15 dias",),
+    "ref4_nombre": (),
+    "ref4_tel": ("tel ref4", "tel ref 4", "telefono ref4"),
+    "ref4_parentesco": ("parentesco referencia 4", "parentesco ref4"),
     "fecha_asig": ("fecha asig", "fecha asignacion"),
     "fecha_arranque": ("fch arranque", "fecha arranque"),
     "fecha_prom": ("fecha prom", "fecha promesa"), "monto_prom": ("monto prom", "monto promesa"),
@@ -43,25 +69,45 @@ FIELD_HEADERS = {
     "referencia_1": ("referencia 1", "ref 1"), "ref1_tel": ("tel ref1", "tel ref 1", "telefono ref1"),
     "ref1_nombre": ("ref1", "nombre relacion", "nombre referencia 1"),
     "ref1_tipo_telefono": ("tipo telefono", "tipo telefono referencia 1"),
-    "ref1_parentesco": ("parentesco", "parentesco referencia 1", "parentezco"),
+    "ref1_parentesco": (
+        "parentesco",
+        "parentesco referencia 1",
+        "parentezco",
+    ),
     "referencia_2": ("referencia 2", "ref 2"), "ref2_tel": ("tel ref2", "tel ref 2", "telefono ref2"),
     "en_predic": ("en predic", "en prediccion"),
     "ref2_nombre": ("ref2", "nombre relacion", "nombre referencia 2"),
     "ref2_tipo_telefono": ("tipo telefono", "tipo telefono referencia 2"),
-    "ref2_parentesco": ("parentesco", "parentesco referencia 2", "parentezco"),
+    "ref2_parentesco": (
+        "parentesco",
+        "parentesco referencia 2",
+        "parentezco",
+    ),
     "ref3_nombre": ("nombre referencia 3", "ref3 nombre"),
     "ref3_tel": ("tel ref3", "tel ref 3", "telefono ref3"),
-    "ref3_parentesco": ("parentesco referencia 3", "parentesco ref3"),
+    "ref3_parentesco": (
+        "parentesco referencia 3",
+        "parentesco ref3",
+    ),
     "ref3_domicilio": ("domicilio referencia 3", "domicilio ref3"),
-    "producto": ("producto",), "capital": ("monto original", "capital"),
-    "fecha_credito": ("f otorgamiento", "fecha otorgamiento", "fecha credito", "fch credito"),
+    "producto": ("producto", "tipo de credito"),
+    "capital": ("monto original", "capital"),
+    "fecha_credito": (
+        "f otorgamiento",
+        "fecha otorgamiento",
+        "fecha credito",
+        "fch credito",
+    ),
     "fecha_ult_pago_finore": (
         "f ultimo pago jun",
         "fecha ultimo pago jun",
         "f ultimo pago",
         "fecha ult pago en finore",
     ),
-    "monto_ult_pago_finore": ("monto ult pago en finore", "monto ultimo pago en finore"),
+    "monto_ult_pago_finore": (
+        "monto ult pago en finore",
+        "monto ultimo pago en finore",
+    ),
     "mora_1": ("dias atraso 06 07", "dias atraso", "mora"),
     "dias_atraso_estimado": ("dias atraso est 31 08", "dias atraso estimado"),
     "pagos_atrasados_jun": ("pagos atrasados jun",), "deudas_vencidas_toku": ("deudas vencidas toku",),
@@ -73,7 +119,8 @@ FIELD_HEADERS = {
     "celular": ("telefono", "celular", "telefono celular"),
     "casa": ("casa", "telefono casa"),
     "domicilio_completo": ("domicilio completo", "domicilio"), "calle_numero": ("calle", "calle numero"),
-    "colonia": ("colonia",), "ciudad": ("municipio", "ciudad"), "estado": ("estado",),
+    "colonia": ("colonia",),     "ciudad": ("municipio", "ciudad"),
+    "estado": ("estado",),
     "codigo_postal": ("cp", "codigo postal"), "correo_cliente": ("correo", "correo cliente", "email"),
     "estatus_correo_cliente": ("estatus correo", "estatus correo cliente"),
     "estatus_mb": ("estatus mb",),
@@ -109,6 +156,9 @@ DECIMAL_COLUMNS = {
     "proyeccion_cierre",
     "sdo_vencido_inicial",
     "saldo_vencido_actual",
+    "pago_cuota",
+    "monto_vencido",
+    "oferta_liquidacion",
     "capital",
     "deudas_vencidas_toku",
     "capital_vencido",
@@ -195,9 +245,76 @@ def map_header_columns(header: list[object]) -> dict[str, int]:
     generic_email_status_count = sum(
         normalize_header(value) == "estatus correo" for value in header
     )
+    normalized_headers = [normalize_header(value) for value in header]
+    is_go_credit_layout = {
+        "id credito",
+        "referencia pago",
+        "idpersona",
+    }.issubset(normalized_headers)
+    go_credit_header_fields = {
+        "referencia pago": "referencia_pago",
+        "id credito": "numero_credito",
+        "idpersona": "id_cuenta",
+        "nombre": "cliente",
+        "telefono 1": "celular",
+        "telefono 2": "casa",
+        "monto": "capital",
+        "monto ultimo pago": "monto_ult_pago_finore",
+        "diasatraso": "mora_1",
+        "bkt actual": "tramo",
+        "estatus domi": "estatus_domi",
+        "entre calles": "entre_calles",
+        "tipo de credito": "producto",
+        "f desembolso": "fecha_credito",
+        "pago cuota": "pago_cuota",
+        "vencido": "monto_vencido",
+        "oferta liquidacion": "oferta_liquidacion",
+        "curp": "curp",
+        "ciudad demograficos": "ciudad",
+        "estado demograficos": "estado",
+        "referencia 1": "ref1_nombre",
+        "referencia 2": "ref2_nombre",
+        "referencia 3": "ref3_nombre",
+        "referencia 4": "ref4_nombre",
+        "parentesco ref 1": "ref1_parentesco",
+        "parentesco ref 2": "ref2_parentesco",
+        "parentesco ref 3": "ref3_parentesco",
+        "parentesco ref 4": "ref4_parentesco",
+        "plaza": "plaza",
+        "ejecutivo": "ejecutivo",
+        "vendedor": "vendedor",
+        "supervisor vendedor": "supervisor_vendedor",
+        "banco": "banco",
+        "rango pagado": "rango_pagado",
+        "cuotas pag rango": "cuotas_pagadas_rango",
+        "rango pagado mes anterior": "rango_pagado_mes_anterior",
+        "rango pagado 30 dias": "rango_pagado_30_dias",
+        "rango pagado 15 dias": "rango_pagado_15_dias",
+        "ultimo pago aplicado": "fecha_ult_pago_finore",
+        "montoultimopago": "monto_ult_pago_finore",
+    }
+    go_estatus_positions = [
+        position
+        for position, normalized in enumerate(normalized_headers)
+        if normalized == "estatus"
+    ]
 
     for position, value in enumerate(header):
         normalized = normalize_header(value)
+        if is_go_credit_layout:
+            if normalized in go_credit_header_fields:
+                mapped[go_credit_header_fields[normalized]] = position
+                continue
+            if normalized == "domicilio" and "domicilio completo" in normalized_headers:
+                mapped["calle_numero"] = position
+                continue
+            if normalized == "estatus":
+                # GO CREDIT has a call status first and a portfolio status last.
+                if len(go_estatus_positions) > 1 and position == go_estatus_positions[0]:
+                    mapped["estatus_gestion"] = position
+                else:
+                    mapped["estatus"] = position
+                continue
         if normalized == "estatus correo" and generic_email_status_count == 1:
             mapped["estatus_correo_cliente"] = position
             continue

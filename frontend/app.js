@@ -262,16 +262,44 @@ function renderAccountDetails(account) {
     ].filter(Boolean).join(", ");
   const groups = [
     {
-      title: "Datos fundamentales",
+      title: "Cliente",
       items: [
         ["Nombre completo", account.cliente],
         ["Número de teléfono", account.celular || account.casa],
+        ["Teléfono secundario", account.celular ? account.casa : null],
         ["Domicilio", address],
         ["Adeudo inicial", displayMoney(account.sdo_vencido_inicial)],
         ["Adeudo al día", displayMoney(account.saldo_vencido_actual)],
         ["Capital original", displayMoney(account.capital)],
         ["Capital vigente", displayMoney(account.sdo_capital)],
         ["Adeudo total", displayMoney(account.total || account.sdo_actual)],
+        ["Referencia de pago", account.referencia_pago],
+        ["Dependencia", account.dependencia],
+        ["Tipo de crédito", account.producto],
+        [
+          "Saldo actual",
+          displayMoney(account.sdo_actual ?? account.total),
+        ],
+        [
+          "Pago cuota",
+          displayMoney(account.pago_cuota ?? account.pago_mensual),
+        ],
+        [
+          "Saldo vencido",
+          displayMoney(
+            account.monto_vencido
+              ?? account.saldo_vencido_actual
+              ?? account.capital_vencido,
+          ),
+        ],
+        [
+          "Oferta liquidación",
+          displayMoney(
+            account.oferta_liquidacion
+              ?? account.opcion_1_pago_unico
+              ?? account.opcion_2_convenio_total,
+          ),
+        ],
       ],
     },
     {
@@ -285,6 +313,9 @@ function renderAccountDetails(account) {
         ["Referencia 3 · Número de teléfono", account.ref3_tel],
         ["Referencia 3 · Parentesco", account.ref3_parentesco],
         ["Referencia 3 · Domicilio", account.ref3_domicilio],
+        ["Referencia 4 · Nombre", account.ref4_nombre],
+        ["Referencia 4 · Número de teléfono", account.ref4_tel],
+        ["Referencia 4 · Parentesco", account.ref4_parentesco],
       ],
     },
   ];
@@ -796,6 +827,8 @@ async function loadDashboard() {
       financialCounts["BORDER CREDIT"] || 0;
     document.getElementById("metric-finore-accounts").textContent =
       financialCounts.FINORE || 0;
+    document.getElementById("metric-go-credit-accounts").textContent =
+      financialCounts["GO CREDIT"] || 0;
     document.getElementById("metric-calls-yesterday").textContent =
       summary.llamadas_ayer || 0;
     document.getElementById("metric-calls-total").textContent =
