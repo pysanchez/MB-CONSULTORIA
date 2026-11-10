@@ -117,11 +117,9 @@ class LoginRequest(BaseModel):
     password: str = Field(default="", max_length=256)
 
 
-class ReferenciaCreate(BaseModel):
-    nombre: str = Field(min_length=2, max_length=150)
+class NumeroRecolectadoCreate(BaseModel):
     telefono: str = Field(min_length=7, max_length=30)
-    parentesco: str | None = Field(default=None, max_length=80)
-    domicilio: str | None = Field(default=None, max_length=500)
+    referencia: str = Field(min_length=1, max_length=150)
 
 app = FastAPI(
     title="MB CONSULTORIA CRM API",
@@ -635,17 +633,14 @@ def create_gestion(gestion: GestionCreate) -> dict[str, object]:
     return {"mensaje": "La gestión se registró correctamente.", "gestion": response.data}
 
 
-@app.post("/api/carteras/{fk_cartera}/referencias", status_code=201)
-def create_account_reference(
-    fk_cartera: int,
-    referencia: ReferenciaCreate,
-) -> dict[str, object]:
+@app.get("/api/carteras/{fk_cartera}/numeros-recolectados")
+def list_collected_numbers(fk_cartera: int) -> dict[str, list[dict[str, object]]]:
     supabase = get_supabase()
 
     try:
         account_response = (
             supabase.table("carteras")
-            .select("id_cartera,ref3_nombre,ref3_tel")
+            .select("id_cartera")
             .eq("id_cartera", fk_cartera)
             .limit(1)
             .execute()
@@ -653,35 +648,103 @@ def create_account_reference(
         if not account_response.data:
             raise HTTPException(status_code=404, detail="La cuenta seleccionada no existe.")
 
-        account = account_response.data[0]
-        if account.get("ref3_nombre") or account.get("ref3_tel"):
-            raise HTTPException(
-                status_code=409,
-                detail="La cuenta ya tiene una tercera referencia registrada.",
+        numbers = []
+        page_size = 1000
+        page_start = 0
+        while True:
+            number_page = (
+                supabase.table("numeros_recolectados")
+                .select("id_numero,fk_cartera,telefono,referencia,created_at")
+                .eq("fk_cartera", fk_cartera)
+                .order("id_numero")
+                .range(page_start, page_start + page_size - 1)
+                .execute()
+                .data
+                or []
             )
+            numbers.extend(number_page)
+            if len(number_page) < page_size:
+                break
+            page_start += page_size
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "No se pudieron consultar los números recolectados (account_id=%s)",
+            fk_cartera,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "No se pudieron consultar los números recolectados. "
+                "Confirma que aplicaste la migración 014."
+            ),
+        ) from exc
 
-        updated = (
+    return {"items": numbers}
+
+
+@app.post("/api/carteras/{fk_cartera}/numeros-recolectados", status_code=201)
+def create_collected_number(
+    fk_cartera: int,
+    numero: NumeroRecolectadoCreate,
+) -> dict[str, object]:
+    phone = numero.telefono.strip()
+    reference = numero.referencia.strip()
+    if len(phone) < 7:
+        raise HTTPException(
+            status_code=422,
+            detail="El teléfono debe tener al menos 7 caracteres.",
+        )
+    if not reference:
+        raise HTTPException(
+            status_code=422,
+            detail="La referencia es obligatoria.",
+        )
+
+    supabase = get_supabase()
+
+    try:
+        account_response = (
             supabase.table("carteras")
-            .update({
-                "ref3_nombre": referencia.nombre.strip(),
-                "ref3_tel": referencia.telefono.strip(),
-                "ref3_parentesco": referencia.parentesco,
-                "ref3_domicilio": referencia.domicilio,
-            })
+            .select("id_cartera")
             .eq("id_cartera", fk_cartera)
-            .select("id_cartera,ref3_nombre,ref3_tel,ref3_parentesco,ref3_domicilio")
+            .limit(1)
+            .execute()
+        )
+        if not account_response.data:
+            raise HTTPException(status_code=404, detail="La cuenta seleccionada no existe.")
+
+        response = (
+            supabase.table("numeros_recolectados")
+            .insert({
+                "fk_cartera": fk_cartera,
+                "telefono": phone,
+                "referencia": reference,
+            })
+            .select("id_numero,fk_cartera,telefono,referencia,created_at")
             .single()
             .execute()
         )
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception(
+            "No se pudo guardar un número recolectado (account_id=%s)",
+            fk_cartera,
+        )
         raise HTTPException(
             status_code=502,
-            detail="No se pudo guardar la referencia. Confirma que aplicaste la migración 009.",
+            detail=(
+                "No se pudo guardar el número recolectado. "
+                "Confirma que aplicaste la migración 014 en Supabase."
+            ),
         ) from exc
 
-    return {"mensaje": "La referencia se registró correctamente.", "referencia": updated.data}
+    return {
+        "mensaje": "El número recolectado se guardó correctamente.",
+        "numero": response.data,
+    }
 
 
 @app.get("/api/dashboard/general")

@@ -621,37 +621,32 @@
 
               <div id="account-details" class="account-details" aria-live="polite"></div>
 
-              <section class="reference-editor" aria-labelledby="reference-editor-title">
+              <section class="reference-editor" aria-labelledby="collected-numbers-title">
                 <div class="reference-editor-heading">
                   <div>
                     <span class="eyebrow">CONTACTOS</span>
-                    <h3 id="reference-editor-title">Agregar una referencia</h3>
+                    <h3 id="collected-numbers-title">Números recolectados</h3>
                   </div>
-                  <button id="toggle-reference-form" class="button button-secondary" type="button">
-                    Agregar referencia
+                  <button id="toggle-collected-number-form" class="button button-secondary" type="button">
+                    Agregar número
                   </button>
                 </div>
-                <form id="reference-form" class="reference-form" hidden>
-                  <label class="management-field" for="reference-name">
-                    Nombre completo
-                    <input id="reference-name" name="nombre" maxlength="150" required>
-                  </label>
-                  <label class="management-field" for="reference-phone">
+                <div id="collected-numbers-list" class="collected-numbers-list" aria-live="polite">
+                  Cargando números recolectados…
+                </div>
+                <form id="collected-number-form" class="reference-form" hidden>
+                  <label class="management-field" for="collected-number-phone">
                     Teléfono
-                    <input id="reference-phone" name="telefono" type="tel" maxlength="30" required>
+                    <input id="collected-number-phone" name="telefono" type="tel" maxlength="30" required>
                   </label>
-                  <label class="management-field" for="reference-relationship">
-                    Parentesco
-                    <input id="reference-relationship" name="parentesco" maxlength="80">
-                  </label>
-                  <label class="management-field" for="reference-address">
-                    Domicilio (opcional)
-                    <input id="reference-address" name="domicilio" maxlength="500">
+                  <label class="management-field" for="collected-number-reference">
+                    Referencia
+                    <input id="collected-number-reference" name="referencia" maxlength="150" required>
                   </label>
                   <div class="management-submit-row">
-                    <p id="reference-status" class="management-status" role="status" aria-live="polite"></p>
-                    <button id="save-reference" class="button button-primary" type="submit">
-                      Guardar referencia
+                    <p id="collected-number-status" class="management-status" role="status" aria-live="polite"></p>
+                    <button id="save-collected-number" class="button button-primary" type="submit">
+                      Guardar número
                     </button>
                   </div>
                 </form>

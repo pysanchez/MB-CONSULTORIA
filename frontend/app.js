@@ -119,7 +119,8 @@ const promiseFields = document.getElementById("promise-fields");
 const managementHistoryList = document.getElementById("management-history-list");
 const latestManagementSummary = document.getElementById("latest-management-summary");
 const personContactedSelect = document.getElementById("person-contacted");
-const referenceForm = document.getElementById("reference-form");
+const collectedNumberForm = document.getElementById("collected-number-form");
+const collectedNumbersList = document.getElementById("collected-numbers-list");
 const sidebarToggle = document.getElementById("toggle-sidebar");
 
 let portfolioOffset = 0;
@@ -645,17 +646,16 @@ function selectAccount(account) {
   selectedAccountPanel.hidden = false;
 
   managementForm.reset();
-  referenceForm.reset();
-  referenceForm.hidden = true;
-  document.getElementById("toggle-reference-form").hidden = Boolean(
-    account.ref3_nombre || account.ref3_tel,
-  );
+  collectedNumberForm.reset();
+  collectedNumberForm.hidden = true;
+  collectedNumbersList.textContent = "Cargando números recolectados…";
   syncContactOptions(account);
   document.getElementById("management-account-id").value = account.id_cartera;
   promiseFields.hidden = true;
   document.getElementById("promise-date").required = false;
   document.getElementById("promise-amount").required = false;
   showView("management");
+  loadCollectedNumbers(account.id_cartera);
   loadManagementHistory();
 }
 
@@ -664,12 +664,24 @@ function syncContactOptions(account) {
     ["Referencia 1", account.ref1_nombre, account.ref1_tel || account.referencia_1],
     ["Referencia 2", account.ref2_nombre, account.ref2_tel || account.referencia_2],
     ["Referencia 3", account.ref3_nombre, account.ref3_tel],
+    ["Referencia 4", account.ref4_nombre, account.ref4_tel],
   ];
   const options = [
     new Option("Selecciona el contacto", ""),
-    new Option("Titular", "titular"),
-    new Option("No hubo contacto", "sin_contacto"),
   ];
+
+  if (account.celular) {
+    options.push(
+      new Option(`Titular · Celular · ${account.celular}`, "titular_celular"),
+    );
+  }
+  if (account.casa) {
+    options.push(new Option(`Titular · Casa · ${account.casa}`, "titular_casa"));
+  }
+  if (!account.celular && !account.casa) {
+    options.push(new Option("Titular", "titular"));
+  }
+  options.push(new Option("No hubo contacto", "sin_contacto"));
 
   for (const [label, name, phone] of references) {
     if (!name && !phone) {
@@ -683,7 +695,57 @@ function syncContactOptions(account) {
     options.push(option);
   }
 
+  for (const number of account.numeros_recolectados || []) {
+    options.push(
+      new Option(
+        `${number.referencia || "Número recolectado"} · ${number.telefono || "Sin teléfono"}`,
+        `numero_recolectado_${number.id_numero}`,
+      ),
+    );
+  }
+
   personContactedSelect.replaceChildren(...options);
+}
+
+async function loadCollectedNumbers(accountId) {
+  try {
+    const result = await getJson(
+      `${API_URL}/api/carteras/${accountId}/numeros-recolectados`,
+    );
+    if (!selectedAccount || selectedAccount.id_cartera !== accountId) {
+      return;
+    }
+
+    selectedAccount = { ...selectedAccount, numeros_recolectados: result.items };
+    renderCollectedNumbers(result.items);
+    syncContactOptions(selectedAccount);
+  } catch (error) {
+    if (selectedAccount?.id_cartera === accountId) {
+      collectedNumbersList.textContent =
+        `No se pudieron cargar los números recolectados: ${error.message}`;
+    }
+  }
+}
+
+function renderCollectedNumbers(numbers) {
+  collectedNumbersList.replaceChildren();
+  if (!numbers.length) {
+    collectedNumbersList.textContent = "Aún no hay números recolectados.";
+    return;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "collected-number-list";
+  for (const number of numbers) {
+    const item = document.createElement("li");
+    const phone = document.createElement("strong");
+    const reference = document.createElement("span");
+    phone.textContent = number.telefono || "Sin teléfono";
+    reference.textContent = number.referencia || "Sin referencia";
+    item.append(phone, reference);
+    list.append(item);
+  }
+  collectedNumbersList.append(list);
 }
 
 function getContactPhone(contactValue) {
@@ -693,11 +755,19 @@ function getContactPhone(contactValue) {
 
   const phones = {
     titular: selectedAccount.celular || selectedAccount.casa,
+    titular_celular: selectedAccount.celular,
+    titular_casa: selectedAccount.casa,
     sin_contacto: selectedAccount.celular || selectedAccount.casa,
     referencia1: selectedAccount.ref1_tel || selectedAccount.referencia_1,
     referencia2: selectedAccount.ref2_tel || selectedAccount.referencia_2,
     referencia3: selectedAccount.ref3_tel,
+    referencia4: selectedAccount.ref4_tel,
   };
+  if (contactValue.startsWith("numero_recolectado_")) {
+    const numberId = contactValue.slice("numero_recolectado_".length);
+    return selectedAccount.numeros_recolectados
+      ?.find((number) => String(number.id_numero) === numberId)?.telefono || null;
+  }
   return phones[contactValue] || null;
 }
 
@@ -708,11 +778,20 @@ function getContactName(contactValue) {
 
   const names = {
     titular: "Titular",
+    titular_celular: "Titular · Celular",
+    titular_casa: "Titular · Casa",
     sin_contacto: "Sin contacto",
     referencia1: selectedAccount.ref1_nombre || "Referencia 1",
     referencia2: selectedAccount.ref2_nombre || "Referencia 2",
     referencia3: selectedAccount.ref3_nombre || "Referencia 3",
+    referencia4: selectedAccount.ref4_nombre || "Referencia 4",
   };
+  if (contactValue.startsWith("numero_recolectado_")) {
+    const numberId = contactValue.slice("numero_recolectado_".length);
+    const collectedNumber = selectedAccount.numeros_recolectados
+      ?.find((number) => String(number.id_numero) === numberId);
+    return collectedNumber?.referencia || "Número recolectado";
+  }
   return names[contactValue] || "Otro contacto";
 }
 
@@ -1223,44 +1302,47 @@ document.getElementById("management-result-filter").addEventListener(
   loadManagementHistory,
 );
 
-document.getElementById("toggle-reference-form").addEventListener("click", () => {
-  referenceForm.hidden = !referenceForm.hidden;
-  if (!referenceForm.hidden) {
-    document.getElementById("reference-name").focus();
+document.getElementById("toggle-collected-number-form").addEventListener("click", () => {
+  collectedNumberForm.hidden = !collectedNumberForm.hidden;
+  if (!collectedNumberForm.hidden) {
+    document.getElementById("collected-number-phone").focus();
   }
 });
 
-referenceForm.addEventListener("submit", async (event) => {
+collectedNumberForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!selectedAccount || !referenceForm.reportValidity()) {
+  if (!selectedAccount || !collectedNumberForm.reportValidity()) {
     return;
   }
 
-  const status = document.getElementById("reference-status");
-  const saveButton = document.getElementById("save-reference");
+  const status = document.getElementById("collected-number-status");
+  const saveButton = document.getElementById("save-collected-number");
   saveButton.disabled = true;
-  status.textContent = "Guardando referencia…";
+  status.textContent = "Guardando número…";
 
   try {
     const result = await getJson(
-      `${API_URL}/api/carteras/${selectedAccount.id_cartera}/referencias`,
+      `${API_URL}/api/carteras/${selectedAccount.id_cartera}/numeros-recolectados`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: document.getElementById("reference-name").value.trim(),
-          telefono: document.getElementById("reference-phone").value.trim(),
-          parentesco: document.getElementById("reference-relationship").value.trim() || null,
-          domicilio: document.getElementById("reference-address").value.trim() || null,
+          telefono: document.getElementById("collected-number-phone").value.trim(),
+          referencia: document.getElementById("collected-number-reference").value.trim(),
         }),
       },
     );
-    selectedAccount = { ...selectedAccount, ...result.referencia };
-    renderAccountDetails(selectedAccount);
+    selectedAccount = {
+      ...selectedAccount,
+      numeros_recolectados: [
+        ...(selectedAccount.numeros_recolectados || []),
+        result.numero,
+      ],
+    };
+    renderCollectedNumbers(selectedAccount.numeros_recolectados);
     syncContactOptions(selectedAccount);
-    referenceForm.reset();
-    referenceForm.hidden = true;
-    document.getElementById("toggle-reference-form").hidden = true;
+    collectedNumberForm.reset();
+    collectedNumberForm.hidden = true;
     status.textContent = result.mensaje;
   } catch (error) {
     status.textContent = error.message;

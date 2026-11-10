@@ -1416,6 +1416,31 @@ button.text-link {
 .reference-form[hidden] {
   display: none;
 }
+.collected-numbers-list {
+  margin-top: 12px;
+}
+.collected-number-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.collected-number-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid #EEEEEE;
+  border-radius: 7px;
+  background: #fff;
+  color: #777;
+  font-size: 11px;
+}
+.collected-number-list strong {
+  color: #3F3F3F;
+  font-weight: 600;
+}
 .management-history-heading label {
   display: flex;
   align-items: center;
